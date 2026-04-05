@@ -54,6 +54,13 @@ function createDeck() {
   return shuffle(deck);
 }
 
+function effectiveTopColor(topCard) {
+  if (topCard.color === 'wild' && topCard.chosenColor) {
+    return topCard.chosenColor;
+  }
+  return topCard.color;
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -196,8 +203,9 @@ wss.on('connection', (ws) => {
         valid = (card.type === '+2' && topCard.type === '+2') || 
                 (card.type === '+4' && topCard.type === '+4');
       } else {
-        // Normal play: match color or type/value
-        valid = card.color === topCard.color || 
+        // Normal play: match color (including wild's chosen color) or type/value
+        const topColor = effectiveTopColor(topCard);
+        valid = card.color === topColor ||
                 (card.type === topCard.type && card.type !== 'number') ||
                 (card.type === 'number' && card.value === topCard.value);
       }

@@ -617,6 +617,13 @@ function updateGameView() {
   }
 }
 
+function effectiveTopColor(topCard) {
+  if (topCard.color === 'wild' && topCard.chosenColor) {
+    return topCard.chosenColor;
+  }
+  return topCard.color;
+}
+
 function canPlayCard(card, topCard, stack) {
   if (card.color === 'wild') {
     if (stack > 0) {
@@ -629,7 +636,8 @@ function canPlayCard(card, topCard, stack) {
     // Must stack +2 on +2
     return card.type === '+2' && topCard.type === '+2';
   }
-  return card.color === topCard.color || 
+  const topColor = effectiveTopColor(topCard);
+  return card.color === topColor ||
          (card.type === topCard.type && card.type !== 'number') ||
          (card.type === 'number' && card.value === topCard.value);
 }
