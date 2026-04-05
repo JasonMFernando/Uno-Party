@@ -99,7 +99,7 @@ wss.on('connection', (ws) => {
           player.connected = true;
           playerSockets.set(ws, {roomCode, playerId});
           ws.send(JSON.stringify({type: 'reconnected', room, you: player}));
-          broadcast(roomCode, {type: 'playerReconnected', playerName: player.name});
+          broadcast(roomCode, {type: 'playerReconnected', playerName: player.name, room});
           return;
         }
       }
@@ -119,8 +119,7 @@ wss.on('connection', (ws) => {
           name: playerName, 
           hand: [], 
           ws, 
-          connected: true,
-          saidUno: false
+          connected: true
         }],
         deck: [],
         discard: [],
@@ -154,13 +153,12 @@ wss.on('connection', (ws) => {
         name: playerName,
         hand: [],
         ws,
-        connected: true,
-        saidUno: false
+        connected: true
       };
       room.players.push(player);
       playerSockets.set(ws, {roomCode, playerId: newPlayerId});
       ws.send(JSON.stringify({type: 'joined', playerId: newPlayerId, room}));
-      broadcast(roomCode, {type: 'playerJoined', player}, ws);
+      broadcast(roomCode, {type: 'playerJoined', player, room}, ws);
     }
 
     // START GAME
@@ -242,15 +240,6 @@ wss.on('connection', (ws) => {
         return;
       }
       
-      // Check UNO penalty
-      if (player.hand.length === 1 && !player.saidUno) {
-        // Forgot to say UNO! Draw 2 penalty
-        const penalty = room.deck.splice(0, 2);
-        player.hand.push(...penalty);
-        broadcast(roomCode, {type: 'unoPenalty', player: player.name});
-      }
-      player.saidUno = false; // Reset for next turn
-      
       // Advance turn
       if (!skipNext) {
         room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
@@ -259,16 +248,6 @@ wss.on('connection', (ws) => {
       }
       
       broadcast(roomCode, {type: 'stateUpdate', room});
-    }
-
-    // SAY UNO
-    if (type === 'uno') {
-      const room = rooms[roomCode];
-      const player = room?.players.find(p => p.id === playerId);
-      if (player && player.hand.length === 2) { // Can only say UNO when 2 cards left (about to play 1)
-        player.saidUno = true;
-        broadcast(roomCode, {type: 'saidUno', player: player.name});
-      }
     }
 
     // DRAW CARD
@@ -310,7 +289,7 @@ wss.on('connection', (ws) => {
           const player = room.players.find(p => p.id === playerId);
           if (player) {
             player.connected = false;
-            broadcast(roomCode, {type: 'playerDisconnected', playerName: player.name});
+            broadcast(roomCode, {type: 'playerDisconnected', playerName: player.name, room});
             
             // Clean up empty rooms after 5 minutes
             setTimeout(() => {

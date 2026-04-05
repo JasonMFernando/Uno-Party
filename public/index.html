@@ -168,21 +168,6 @@
       gap: 15px;
       z-index: 50;
     }
-    #unoBtn {
-      background: #ff6b6b;
-      color: white;
-      font-weight: bold;
-      font-size: 1.3rem;
-      padding: 15px 30px;
-      border-radius: 50px;
-      display: none;
-    }
-    #unoBtn.can-say { animation: shake 0.5s infinite; display: block; }
-    @keyframes shake {
-      0%, 100% { transform: rotate(0deg); }
-      25% { transform: rotate(-5deg); }
-      75% { transform: rotate(5deg); }
-    }
     #drawBtn {
       background: #48dbfb;
       color: #1a1a2e;
@@ -295,7 +280,6 @@
   
   <div id="controls">
     <button id="drawBtn" onclick="drawCard()">DRAW</button>
-    <button id="unoBtn" onclick="sayUno()">UNO!</button>
   </div>
   
   <div id="hand"></div>
@@ -451,16 +435,16 @@ function handleMessage(msg) {
     case 'playerJoined':
     case 'playerDisconnected':
     case 'playerReconnected':
-      currentRoom = msg.room || currentRoom;
+      if (msg.room) currentRoom = msg.room;
       if (currentRoom) {
-        currentRoom.players = msg.room?.players || currentRoom.players;
         if (document.getElementById('roomInfo').style.display !== 'none') {
           updatePlayerList();
         } else if (document.getElementById('game').style.display !== 'none') {
           updateGameView();
         }
       }
-      showMessage(`${msg.playerName} ${msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected'}!`);
+      const pname = msg.playerName || (msg.player && msg.player.name) || 'Someone';
+      showMessage(`${pname} ${msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected'}!`);
       break;
       
     case 'gameStarted':
@@ -472,14 +456,6 @@ function handleMessage(msg) {
     case 'stateUpdate':
       currentRoom = msg.room;
       updateGameView();
-      break;
-      
-    case 'saidUno':
-      showMessage(`${msg.player} said UNO!`);
-      break;
-      
-    case 'unoPenalty':
-      showMessage(`${msg.player} forgot UNO! +2 cards`);
       break;
       
     case 'gameOver':
@@ -541,6 +517,9 @@ function updatePlayerList() {
   list.innerHTML = currentRoom.players.map(p => 
     `<span class="player-tag ${p.connected ? '' : 'disconnected'}">${p.name} ${p.id === currentRoom.hostId ? '👑' : ''}</span>`
   ).join('');
+  const isHost = currentRoom.hostId === myId;
+  document.getElementById('startBtn').style.display = isHost && currentRoom.players.length >= 2 ? 'block' : 'none';
+  document.getElementById('waitingText').style.display = isHost ? 'none' : 'block';
 }
 
 function startGame() {
@@ -573,7 +552,7 @@ function updateGameView() {
   }
   opponentsEl.innerHTML = opponents.map((p, i) => `
     <div class="opponent ${p.id === currentPlayer.id ? 'active' : ''}">
-      <div>${p.name} ${p.saidUno ? '⚠️' : ''}</div>
+      <div>${p.name}</div>
       <div class="opponent-cards">🂠${p.hand.length}</div>
     </div>
   `).join('');
@@ -606,15 +585,6 @@ function updateGameView() {
   
   // Controls
   document.getElementById('drawBtn').style.display = isMyTurn ? 'block' : 'none';
-  
-  // UNO button - show when 2 cards left and it's your turn
-  const unoBtn = document.getElementById('unoBtn');
-  if (isMyTurn && me.hand.length === 2) {
-    unoBtn.className = 'can-say';
-  } else {
-    unoBtn.className = '';
-    unoBtn.style.display = 'none';
-  }
 }
 
 function effectiveTopColor(topCard) {
@@ -677,16 +647,6 @@ function drawCard() {
     roomCode: myRoomCode,
     playerId: myId
   }));
-}
-
-function sayUno() {
-  ws.send(JSON.stringify({
-    type: 'uno',
-    roomCode: myRoomCode,
-    playerId: myId
-  }));
-  document.getElementById('unoBtn').className = '';
-  document.getElementById('unoBtn').style.display = 'none';
 }
 
 function showMessage(text) {
