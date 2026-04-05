@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UNO Party</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: white;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    /* Lobby */
+    #lobby {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    #lobby h1 {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .input-group {
+      margin: 15px 0;
+      width: 100%;
+      max-width: 300px;
+    }
+    input {
+      width: 100%;
+      padding: 15px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 10px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    button:active { transform: scale(0.95); }
+    .btn-primary { background: #00d2d3; color: #1a1a2e; font-weight: bold; }
+    .btn-danger { background: #ff6b6b; color: white; }
+    .btn-warning { background: #feca57; color: #1a1a2e; }
+    
+    #roomInfo {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+      text-align: center;
+      display: none;
+    }
+    #playersList { margin: 15px 0; }
+    .player-tag {
+      display: inline-block;
+      padding: 5px 15px;
+      margin: 5px;
+      background: #0f3460;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+    .player-tag.disconnected { opacity: 0.5; text-decoration: line-through; }
+    
+    /* Game Board */
+    #game { display: none; min-height: 100vh; padding: 10px; }
+    #topBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #16213e;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    #table {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      min-height: 150px;
+      margin: 20px 0;
+    }
+    
+    /* SVG Cards */
+    .card {
+      width: 80px;
+      height: 120px;
+      border-radius: 10px;
+      position: relative;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+    .card.playable { cursor: pointer; animation: pulse 1s infinite; }
+    .card.playable:hover { transform: translateY(-10px); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 4px 20px rgba(255,255,255,0.3); }
+    }
+    
+    /* Wild color picker */
+    #colorPicker {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #16213e;
+      padding: 20px;
+      border-radius: 15px;
+      z-index: 100;
+    }
+    .color-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      margin: 10px;
+      border: 3px solid white;
+      cursor: pointer;
+    }
+    
+    /* Hand */
+    #hand {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #0f3460;
+      padding: 15px;
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    #hand::-webkit-scrollbar { height: 8px; }
+    #hand::-webkit-scrollbar-thumb { background: #e94560; border-radius: 4px; }
+    
+    .hand-card {
+      flex-shrink: 0;
+      width: 70px;
+      height: 105px;
+    }
+    
+    /* Controls */
+    #controls {
+      position: fixed;
+      bottom: 140px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 50;
+    }
+    #unoBtn {
+      background: #ff6b6b;
+      color: white;
+      font-weight: bold;
+      font-size: 1.3rem;
+      padding: 15px 30px;
+      border-radius: 50px;
+      display: none;
+    }
+    #unoBtn.can-say { animation: shake 0.5s infinite; display: block; }
+    @keyframes shake {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-5deg); }
+      75% { transform: rotate(5deg); }
+    }
+    #drawBtn {
+      background: #48dbfb;
+      color: #1a1a2e;
+      padding: 15px 25px;
+      border-radius: 25px;
+    }
+    
+    /* Turn indicator */
+    #turnIndicator {
+      text-align: center;
+      padding: 10px;
+      font-size: 1.2rem;
+    }
+    #turnIndicator.my-turn { color: #00d2d3; font-weight: bold; }
+    
+    /* Stack indicator */
+    #stackIndicator {
+      position: absolute;
+      top: -30px;
+      background: #e94560;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      display: none;
+    }
+    
+    /* Messages */
+    #message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #e94560;
+      padding: 20px 40px;
+      border-radius: 15px;
+      font-size: 1.3rem;
+      display: none;
+      z-index: 200;
+    }
+    
+    /* Opponents */
+    #opponents {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .opponent {
+      text-align: center;
+      padding: 10px;
+      background: #16213e;
+      border-radius: 10px;
+      min-width: 80px;
+    }
+    .opponent.active { border: 2px solid #00d2d3; }
+    .opponent-cards { font-size: 1.5rem; }
+    
+    /* Desktop tweaks */
+    @media (min-width: 768px) {
+      .card { width: 100px; height: 150px; }
+      .hand-card { width: 90px; height: 135px; }
+      #hand { justify-content: center; flex-wrap: wrap; overflow-x: visible; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <h1>🎴 UNO PARTY</h1>
+  
+  <div id="nameInput">
+    <div class="input-group">
+      <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="12">
+    </div>
+    <button class="btn-primary" onclick="showMenu()">Continue</button>
+  </div>
+  
+  <div id="menu" style="display:none;">
+    <button class="btn-primary" onclick="createRoom()">Create Room</button>
+    <div class="input-group">
+      <input type="text" id="roomCode" placeholder="ENTER CODE" maxlength="5">
+    </div>
+    <button class="btn-primary" onclick="joinRoom()">Join Room</button>
+  </div>
+  
+  <div id="roomInfo">
+    <h2>Room: <span id="displayCode"></span></h2>
+    <div id="playersList"></div>
+    <button id="startBtn" class="btn-danger" onclick="startGame()" style="display:none;">START GAME</button>
+    <p id="waitingText">Waiting for host to start...</p>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <div id="topBar">
+    <span id="roomCodeDisplay"></span>
+    <span id="turnIndicator"></span>
+  </div>
+  
+  <div id="opponents"></div>
+  
+  <div id="table">
+    <div id="stackIndicator">Draw +<span id="stackCount">0</span></div>
+    <div id="deckCard" class="card"></div>
+    <div id="discardCard" class="card"></div>
+  </div>
+  
+  <div id="controls">
+    <button id="drawBtn" onclick="drawCard()">DRAW</button>
+    <button id="unoBtn" onclick="sayUno()">UNO!</button>
+  </div>
+  
+  <div id="hand"></div>
+</div>
+
+<!-- Color Picker for Wilds -->
+<div id="colorPicker">
+  <h3>Choose Color:</h3>
+  <div>
+    <button class="color-btn" style="background:#ff6b6b" onclick="pickColor('red')"></button>
+    <button class="color-btn" style="background:#48dbfb" onclick="pickColor('blue')"></button>
+  </div>
+  <div>
+    <button class="color-btn" style="background:#1dd1a1" onclick="pickColor('green')"></button>
+    <button class="color-btn" style="background:#feca57" onclick="pickColor('yellow')"></button>
+  </div>
+</div>
+
+<div id="message"></div>
+
+<script>
+// SVG Card Generator
+function getCardSVG(card, isSmall=false) {
+  const w = isSmall ? 70 : 100;
+  const h = isSmall ? 105 : 150;
+  const colorMap = {
+    red: '#ff6b6b', blue: '#48dbfb', green: '#1dd1a1', yellow: '#feca57', wild: '#1a1a2e'
+  };
+  
+  let bg = colorMap[card.color] || '#333';
+  let content = '';
+  
+  if (card.color === 'wild') {
+    bg = '#1a1a2e';
+    content = `<rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#ff6b6b" transform="rotate(20 ${w/2} ${h/2})"/>
+               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#48dbfb" transform="rotate(110 ${w/2} ${h/2})"/>
+               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#1dd1a1" transform="rotate(200 ${w/2} ${h/2})"/>
+               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#feca57" transform="rotate(290 ${w/2} ${h/2})"/>
+               <text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="white" font-size="${isSmall?16:24}" font-weight="bold">${card.type==='+4'?'+4':'W'}</text>`;
+  } else if (card.type === 'number') {
+    content = `<text x="${w/2}" y="${h/2+10}" text-anchor="middle" fill="white" font-size="${isSmall?30:40}" font-weight="bold">${card.value}</text>
+               <ellipse cx="${w/2}" cy="${h/2}" rx="${w/3}" ry="${h/3}" fill="white" fill-opacity="0.3"/>`;
+  } else if (card.type === 'skip') {
+    content = `<circle cx="${w/2}" cy="${h/2}" r="${isSmall?20:30}" fill="none" stroke="white" stroke-width="${isSmall?4:6}"/>
+               <line x1="${w/2-15}" y1="${h/2}" x2="${w/2+15}" y2="${h/2}" stroke="white" stroke-width="${isSmall?4:6}" transform="rotate(45 ${w/2} ${h/2})"/>`;
+  } else if (card.type === 'reverse') {
+    content = `<path d="M ${w/2-20} ${h/2} L ${w/2+10} ${h/2-15} L ${w/2+10} ${h/2+15} Z" fill="white"/>
+               <path d="M ${w/2+20} ${h/2} L ${w/2-10} ${h/2-15} L ${w/2-10} ${h/2+15} Z" fill="white"/>`;
+  } else if (card.type === '+2') {
+    content = `<text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="white" font-size="${isSmall?20:28}" font-weight="bold">+2</text>`;
+  }
+  
+  // Chosen color indicator for wilds
+  if (card.chosenColor) {
+    const c = colorMap[card.chosenColor];
+    content += `<rect x="5" y="5" width="${w-10}" height="8" fill="${c}" rx="2"/>`;
+  }
+  
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;">
+    <rect width="${w}" height="${h}" rx="10" fill="${bg}" stroke="white" stroke-width="2"/>
+    <rect x="5" y="5" width="${w-10}" height="${h-10}" rx="8" fill="none" stroke="white" stroke-width="1" stroke-opacity="0.5"/>
+    ${content}
+  </svg>`;
+}
+
+function getCardBackSVG(isSmall=false) {
+  const w = isSmall ? 70 : 100;
+  const h = isSmall ? 105 : 150;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;">
+    <rect width="${w}" height="${h}" rx="10" fill="#0f3460" stroke="white" stroke-width="2"/>
+    <rect x="8" y="8" width="${w-16}" height="${h-16}" rx="6" fill="#e94560"/>
+    <circle cx="${w/2}" cy="${h/2}" r="${isSmall?15:25}" fill="#0f3460"/>
+    <text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="#e94560" font-size="${isSmall?12:20}" font-weight="bold">UNO</text>
+  </svg>`;
+}
+
+// State
+let ws;
+let myId;
+let myRoomCode;
+let myName;
+let currentRoom = null;
+let selectedCardIndex = null;
+let pendingWildColor = null;
+
+// Check for reconnection
+const savedId = localStorage.getItem('unoPlayerId');
+const savedRoom = localStorage.getItem('unoRoomCode');
+const savedName = localStorage.getItem('unoPlayerName');
+
+function connect() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${window.location.host}`);
+  
+  ws.onopen = () => {
+    if (savedId && savedRoom && savedName) {
+      // Try to reconnect
+      myName = savedName;
+      ws.send(JSON.stringify({
+        type: 'reconnect',
+        roomCode: savedRoom,
+        playerId: savedId
+      }));
+    }
+  };
+  
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleMessage(msg);
+  };
+  
+  ws.onclose = () => {
+    showMessage('Connection lost. Refresh to reconnect.');
+  };
+}
+
+function handleMessage(msg) {
+  switch(msg.type) {
+    case 'created':
+      myId = msg.playerId;
+      myRoomCode = msg.roomCode;
+      currentRoom = msg.room;
+      saveSession();
+      showRoom();
+      break;
+      
+    case 'joined':
+      myId = msg.playerId;
+      currentRoom = msg.room;
+      saveSession();
+      showRoom();
+      break;
+      
+    case 'reconnected':
+      currentRoom = msg.room;
+      myId = msg.you.id;
+      myRoomCode = msg.room.code;
+      saveSession();
+      if (msg.room.started) {
+        showGame();
+        updateGameView();
+      } else {
+        showRoom();
+      }
+      break;
+      
+    case 'reconnectFailed':
+      clearSession();
+      showMessage('Could not reconnect. Starting fresh...');
+      setTimeout(() => location.reload(), 2000);
+      break;
+      
+    case 'playerJoined':
+    case 'playerDisconnected':
+    case 'playerReconnected':
+      currentRoom = msg.room || currentRoom;
+      if (currentRoom) {
+        currentRoom.players = msg.room?.players || currentRoom.players;
+        if (document.getElementById('roomInfo').style.display !== 'none') {
+          updatePlayerList();
+        } else if (document.getElementById('game').style.display !== 'none') {
+          updateGameView();
+        }
+      }
+      showMessage(`${msg.playerName} ${msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected'}!`);
+      break;
+      
+    case 'gameStarted':
+      currentRoom = msg.room;
+      showGame();
+      updateGameView();
+      break;
+      
+    case 'stateUpdate':
+      currentRoom = msg.room;
+      updateGameView();
+      break;
+      
+    case 'saidUno':
+      showMessage(`${msg.player} said UNO!`);
+      break;
+      
+    case 'unoPenalty':
+      showMessage(`${msg.player} forgot UNO! +2 cards`);
+      break;
+      
+    case 'gameOver':
+      showMessage(`${msg.winner} WINS!`);
+      clearSession();
+      setTimeout(() => location.reload(), 5000);
+      break;
+      
+    case 'error':
+      showMessage(msg.message);
+      break;
+  }
+}
+
+function saveSession() {
+  localStorage.setItem('unoPlayerId', myId);
+  localStorage.setItem('unoRoomCode', myRoomCode);
+  localStorage.setItem('unoPlayerName', myName);
+}
+
+function clearSession() {
+  localStorage.removeItem('unoPlayerId');
+  localStorage.removeItem('unoRoomCode');
+  localStorage.removeItem('unoPlayerName');
+}
+
+function showMenu() {
+  myName = document.getElementById('playerName').value.trim().toUpperCase();
+  if (!myName) return;
+  document.getElementById('nameInput').style.display = 'none';
+  document.getElementById('menu').style.display = 'block';
+}
+
+function createRoom() {
+  ws.send(JSON.stringify({type: 'create', playerName: myName}));
+}
+
+function joinRoom() {
+  const code = document.getElementById('roomCode').value.trim().toUpperCase();
+  if (!code) return;
+  myRoomCode = code;
+  ws.send(JSON.stringify({type: 'join', roomCode: code, playerName: myName}));
+}
+
+function showRoom() {
+  document.getElementById('lobby').querySelector('#nameInput').style.display = 'none';
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('roomInfo').style.display = 'block';
+  document.getElementById('displayCode').textContent = myRoomCode;
+  updatePlayerList();
+  
+  const isHost = currentRoom.hostId === myId;
+  document.getElementById('startBtn').style.display = isHost && currentRoom.players.length >= 2 ? 'block' : 'none';
+  document.getElementById('waitingText').style.display = isHost ? 'none' : 'block';
+}
+
+function updatePlayerList() {
+  const list = document.getElementById('playersList');
+  list.innerHTML = currentRoom.players.map(p => 
+    `<span class="player-tag ${p.connected ? '' : 'disconnected'}">${p.name} ${p.id === currentRoom.hostId ? '👑' : ''}</span>`
+  ).join('');
+}
+
+function startGame() {
+  ws.send(JSON.stringify({type: 'start', roomCode: myRoomCode, playerId: myId}));
+}
+
+function showGame() {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('roomCodeDisplay').textContent = `Room: ${myRoomCode}`;
+}
+
+function updateGameView() {
+  const me = currentRoom.players.find(p => p.id === myId);
+  const isMyTurn = currentRoom.players[currentRoom.turn].id === myId;
+  
+  // Turn indicator
+  const currentPlayer = currentRoom.players[currentRoom.turn];
+  const turnEl = document.getElementById('turnIndicator');
+  turnEl.textContent = isMyTurn ? 'YOUR TURN!' : `${currentPlayer.name}'s turn`;
+  turnEl.className = isMyTurn ? 'my-turn' : '';
+  
+  // Opponents
+  const opponentsEl = document.getElementById('opponents');
+  const myIndex = currentRoom.players.findIndex(p => p.id === myId);
+  const opponents = [];
+  for (let i = 1; i < currentRoom.players.length; i++) {
+    const idx = (myIndex + i) % currentRoom.players.length;
+    opponents.push(currentRoom.players[idx]);
+  }
+  opponentsEl.innerHTML = opponents.map((p, i) => `
+    <div class="opponent ${p.id === currentPlayer.id ? 'active' : ''}">
+      <div>${p.name} ${p.saidUno ? '⚠️' : ''}</div>
+      <div class="opponent-cards">🂠${p.hand.length}</div>
+    </div>
+  `).join('');
+  
+  // Table
+  const topCard = currentRoom.discard[currentRoom.discard.length - 1];
+  document.getElementById('deckCard').innerHTML = getCardBackSVG();
+  document.getElementById('discardCard').innerHTML = getCardSVG(topCard);
+  
+  // Stack indicator
+  const stackEl = document.getElementById('stackIndicator');
+  if (currentRoom.drawStack > 0) {
+    stackEl.style.display = 'block';
+    document.getElementById('stackCount').textContent = currentRoom.drawStack;
+  } else {
+    stackEl.style.display = 'none';
+  }
+  
+  // My hand
+  const handEl = document.getElementById('hand');
+  const topCardObj = currentRoom.discard[currentRoom.discard.length - 1];
+  
+  handEl.innerHTML = me.hand.map((card, i) => {
+    const canPlay = isMyTurn && canPlayCard(card, topCardObj, currentRoom.drawStack);
+    return `<div class="hand-card card ${canPlay ? 'playable' : ''}" 
+                 onclick="${canPlay ? `playCard(${i})` : ''}">
+      ${getCardSVG(card, true)}
+    </div>`;
+  }).join('');
+  
+  // Controls
+  document.getElementById('drawBtn').style.display = isMyTurn ? 'block' : 'none';
+  
+  // UNO button - show when 2 cards left and it's your turn
+  const unoBtn = document.getElementById('unoBtn');
+  if (isMyTurn && me.hand.length === 2) {
+    unoBtn.className = 'can-say';
+  } else {
+    unoBtn.className = '';
+    unoBtn.style.display = 'none';
+  }
+}
+
+function canPlayCard(card, topCard, stack) {
+  if (card.color === 'wild') {
+    if (stack > 0) {
+      // Can only stack +4 on +4, or any wild if no stack
+      return topCard.type === '+4' ? card.type === '+4' : true;
+    }
+    return true;
+  }
+  if (stack > 0) {
+    // Must stack +2 on +2
+    return card.type === '+2' && topCard.type === '+2';
+  }
+  return card.color === topCard.color || 
+         (card.type === topCard.type && card.type !== 'number') ||
+         (card.type === 'number' && card.value === topCard.value);
+}
+
+function playCard(index) {
+  const card = currentRoom.players.find(p => p.id === myId).hand[index];
+  
+  if (card.color === 'wild') {
+    selectedCardIndex = index;
+    document.getElementById('colorPicker').style.display = 'block';
+    return;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'play',
+    roomCode: myRoomCode,
+    playerId: myId,
+    cardIndex: index
+  }));
+}
+
+function pickColor(color) {
+  document.getElementById('colorPicker').style.display = 'none';
+  ws.send(JSON.stringify({
+    type: 'play',
+    roomCode: myRoomCode,
+    playerId: myId,
+    cardIndex: selectedCardIndex,
+    chosenColor: color
+  }));
+  selectedCardIndex = null;
+}
+
+function drawCard() {
+  ws.send(JSON.stringify({
+    type: 'draw',
+    roomCode: myRoomCode,
+    playerId: myId
+  }));
+}
+
+function sayUno() {
+  ws.send(JSON.stringify({
+    type: 'uno',
+    roomCode: myRoomCode,
+    playerId: myId
+  }));
+  document.getElementById('unoBtn').className = '';
+  document.getElementById('unoBtn').style.display = 'none';
+}
+
+function showMessage(text) {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// Initialize
+connect();
+</script>
+
+</body>
+</html>
