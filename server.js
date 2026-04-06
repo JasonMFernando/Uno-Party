@@ -69,6 +69,14 @@ function shuffle(arr) {
   return arr;
 }
 
+/** First discard of a round must be a number card so color is defined (not wild / skip / +2 / +4 / reverse). */
+function takeStarterDiscard(deck) {
+  const idx = deck.findIndex(c => c.type === 'number');
+  if (idx === -1) return deck.pop();
+  const [starter] = deck.splice(idx, 1);
+  return starter;
+}
+
 function generateCode() {
   return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
@@ -91,7 +99,7 @@ function clearRoundTimer(room) {
 
 function startNewRound(room) {
   room.deck = createDeck();
-  room.discard = [room.deck.pop()];
+  room.discard = [takeStarterDiscard(room.deck)];
   room.drawStack = 0;
   room.direction = 1;
   room.turn = 0;
@@ -188,7 +196,7 @@ wss.on('connection', (ws) => {
       clearRoundTimer(room);
       room.started = true;
       room.deck = createDeck();
-      room.discard = [room.deck.pop()]; // Starting card
+      room.discard = [takeStarterDiscard(room.deck)];
       
       // Deal 7 cards each
       for (const p of room.players) {
