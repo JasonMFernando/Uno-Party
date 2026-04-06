@@ -4,12 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>UNO Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-deep: #12101c;
+      --bg-mid: #1a1a2e;
+      --surface: #16213e;
+      --surface-2: #0f3460;
+      --accent: #00d2d3;
+      --accent-hot: #e94560;
+      --text: #f4f6ff;
+      --muted: rgba(244, 246, 255, 0.72);
+      --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.35);
+      --shadow-card: 0 12px 24px rgba(0, 0, 0, 0.4);
+      --playable-glow: #48dbfb;
+      --font-display: 'Fredoka', -apple-system, BlinkMacSystemFont, sans-serif;
+      --felt: radial-gradient(ellipse 120% 80% at 50% 100%, #1b2847 0%, #14182a 55%, #0d1018 100%);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a2e;
-      color: white;
+      background: var(--bg-mid);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 210, 211, 0.12), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 80%, rgba(233, 69, 96, 0.08), transparent 45%),
+        linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 40%, #151625 100%);
+      color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
     }
@@ -24,11 +47,16 @@
       padding: 20px;
     }
     #lobby h1 {
-      font-size: 3rem;
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 8vw, 3rem);
+      font-weight: 700;
       margin-bottom: 10px;
-      background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+      background: linear-gradient(120deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+      filter: drop-shadow(0 2px 12px rgba(0, 210, 211, 0.15));
     }
     .input-group {
       margin: 15px 0;
@@ -39,10 +67,18 @@
       width: 100%;
       padding: 15px;
       font-size: 1.1rem;
-      border: none;
-      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
       text-align: center;
       text-transform: uppercase;
+      background: rgba(15, 52, 96, 0.55);
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 210, 211, 0.2);
     }
     button {
       width: 100%;
@@ -50,118 +86,318 @@
       margin: 10px 0;
       font-size: 1.1rem;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.1s;
+      transition: transform 0.15s, box-shadow 0.2s;
     }
-    button:active { transform: scale(0.95); }
-    .btn-primary { background: #00d2d3; color: #1a1a2e; font-weight: bold; }
-    .btn-danger { background: #ff6b6b; color: white; }
-    .btn-warning { background: #feca57; color: #1a1a2e; }
+    button:active { transform: scale(0.97); }
+    .btn-primary {
+      background: linear-gradient(180deg, #1ee8ea 0%, #00b8ba 100%);
+      color: #0a1628;
+      font-weight: 700;
+      font-family: var(--font-display);
+      box-shadow: 0 4px 16px rgba(0, 210, 211, 0.35);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 22px rgba(0, 210, 211, 0.45); }
+    .btn-danger {
+      background: linear-gradient(180deg, #ff8585 0%, #e94560 100%);
+      color: white;
+      font-weight: 700;
+      font-family: var(--font-display);
+      box-shadow: 0 4px 16px rgba(233, 69, 96, 0.35);
+    }
+    .btn-warning { background: #feca57; color: #1a1a2e; font-weight: 700; }
     
     #roomInfo {
-      background: #16213e;
-      padding: 20px;
-      border-radius: 15px;
+      background: rgba(22, 33, 62, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 24px;
+      border-radius: 20px;
       margin: 20px 0;
       text-align: center;
       display: none;
+      box-shadow: var(--shadow-soft);
     }
     #playersList { margin: 15px 0; }
     .player-tag {
       display: inline-block;
-      padding: 5px 15px;
+      padding: 8px 16px;
       margin: 5px;
-      background: #0f3460;
-      border-radius: 20px;
+      background: var(--surface-2);
+      border-radius: 999px;
       font-size: 0.9rem;
+      border: 1px solid rgba(255,255,255,0.06);
     }
     .player-tag.disconnected { opacity: 0.5; text-decoration: line-through; }
     
     /* Game Board */
-    #game { display: none; min-height: 100vh; padding: 10px; }
+    #game {
+      display: none;
+      min-height: 100vh;
+      padding: 12px;
+      padding-bottom: 180px;
+    }
     #topBar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px;
-      background: #16213e;
-      border-radius: 10px;
-      margin-bottom: 10px;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(22, 33, 62, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255, 0.1);
+      border-radius: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-soft);
+    }
+    .room-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .room-badge-code {
+      font-family: ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+    }
+
+    #tableSection {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    #currentColorIndicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      background: rgba(15, 52, 96, 0.65);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    #currentColorIndicator.turn-pulse {
+      animation: color-strip-pop 0.55s ease;
+    }
+    @keyframes color-strip-pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+    .current-color-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+    }
+    .current-color-swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.85);
+             box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      flex-shrink: 0;
+    }
+    .current-color-swatch.wild-swatch {
+      background: conic-gradient(#ff6b6b, #feca57, #1dd1a1, #48dbfb, #ff6b6b);
+    }
+    .current-color-name {
+      font-weight: 600;
+      min-width: 4.5ch;
+    }
+
+    #tableMat {
+      background: var(--felt);
+      border-radius: 24px;
+      padding: 28px 24px 32px;
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        var(--shadow-soft);
+      width: 100%;
+      max-width: 420px;
     }
     #table {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 20px;
-      min-height: 150px;
-      margin: 20px 0;
+      gap: 28px;
+      min-height: 140px;
+      position: relative;
     }
     
     /* SVG Cards */
     .card {
       width: 80px;
       height: 120px;
-      border-radius: 10px;
+      border-radius: 12px;
       position: relative;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      transition: transform 0.2s;
+      box-shadow: var(--shadow-card);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
-    .card.playable { cursor: pointer; animation: pulse 1s infinite; }
-    .card.playable:hover { transform: translateY(-10px); }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-      50% { box-shadow: 0 4px 20px rgba(255,255,255,0.3); }
+    #deckCard, #discardCard {
+      animation: card-float 4.5s ease-in-out infinite;
+    }
+    #discardCard { animation-delay: -2.2s; }
+    @keyframes card-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @media (hover: hover) {
+      #deckCard:hover, #discardCard:hover {
+        transform: translateY(-12px) rotate(-2deg);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+      }
+    }
+    .hand-card.card.playable {
+      cursor: pointer;
+      animation: playable-pulse 1.25s ease-in-out infinite;
+    }
+    .hand-card.card.playable:hover {
+      transform: translateY(-14px) scale(1.02);
+      z-index: 2;
+    }
+    @keyframes playable-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 2px rgba(255,255,255,0.4),
+          0 0 16px var(--playable-glow),
+          0 10px 26px rgba(0,0,0,0.38);
+      }
+      50% {
+        box-shadow:
+          0 0 0 3px rgba(255,255,255,0.55),
+          0 0 26px var(--playable-glow),
+          0 16px 34px rgba(0,0,0,0.42);
+      }
     }
     
-    /* Wild color picker */
-    #colorPicker {
-      display: none;
+    /* Color picker overlay */
+    #colorPickerOverlay {
       position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #16213e;
+      inset: 0;
+      z-index: 150;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 20px;
-      border-radius: 15px;
-      z-index: 100;
+      background: rgba(10, 8, 18, 0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease, visibility 0.28s;
+    }
+    #colorPickerOverlay.open {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #colorPickerPanel {
+      background: rgba(22, 33, 62, 0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 28px 24px;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+      transform: scale(0.88);
+      opacity: 0;
+      transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.28s ease;
+      max-width: 320px;
+    }
+    #colorPickerOverlay.open #colorPickerPanel {
+      transform: scale(1);
+      opacity: 1;
+    }
+    #colorPickerPanel h3 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      margin-bottom: 16px;
+      font-size: 1.35rem;
     }
     .color-btn {
-      width: 60px;
-      height: 60px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       margin: 10px;
-      border: 3px solid white;
+      border: 3px solid rgba(255,255,255,0.9);
       cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    .color-btn:active {
+      transform: scale(0.9);
+    }
+    .color-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
     }
     
     /* Hand */
     #hand {
+      --playable-glow: #48dbfb;
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: #0f3460;
-      padding: 15px;
+      background: linear-gradient(180deg, transparent 0%, rgba(15, 52, 96, 0.97) 18%, var(--surface-2) 100%);
+      padding: 18px 16px;
       display: flex;
       gap: 10px;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: env(safe-area-inset-bottom, 20px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 12px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      z-index: 40;
     }
     #hand::-webkit-scrollbar { height: 8px; }
-    #hand::-webkit-scrollbar-thumb { background: #e94560; border-radius: 4px; }
+    #hand::-webkit-scrollbar-thumb { background: var(--accent-hot); border-radius: 4px; }
     
     .hand-card {
       flex-shrink: 0;
       width: 70px;
       height: 105px;
     }
+    @keyframes hand-card-enter {
+      from {
+        opacity: 0;
+        transform: translateY(28px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .hand-card.hand-card-enter {
+      animation: hand-card-enter 0.4s cubic-bezier(0.34, 1.2, 0.64, 1) backwards;
+    }
     
     /* Controls */
     #controls {
       position: fixed;
-      bottom: 140px;
+      bottom: calc(140px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -169,29 +405,81 @@
       z-index: 50;
     }
     #drawBtn {
-      background: #48dbfb;
-      color: #1a1a2e;
-      padding: 15px 25px;
-      border-radius: 25px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      width: auto;
+      min-width: 120px;
+      padding: 14px 32px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #7aebff 0%, #48dbfb 45%, #2bb5d4 100%);
+      color: #0a2530;
+      box-shadow:
+        0 4px 0 #1a8aa8,
+        0 8px 24px rgba(72, 219, 251, 0.35);
+      border: 1px solid rgba(255,255,255,0.35);
+      transition: transform 0.12s ease, box-shadow 0.2s;
+    }
+    #drawBtn:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #1a8aa8, 0 4px 16px rgba(72, 219, 251, 0.3);
+    }
+    #drawBtn:hover {
+      filter: brightness(1.05);
     }
     
     /* Turn indicator */
     #turnIndicator {
-      text-align: center;
-      padding: 10px;
-      font-size: 1.2rem;
+      text-align: right;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--muted);
+      line-height: 1.3;
+      flex: 1;
+      transition: color 0.3s ease;
     }
-    #turnIndicator.my-turn { color: #00d2d3; font-weight: bold; }
+    #turnIndicator.my-turn {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 1.15rem;
+      text-shadow:
+        0 0 20px rgba(0, 210, 211, 0.45),
+        0 0 40px rgba(0, 210, 211, 0.2);
+      animation: turn-glow 2.5s ease-in-out infinite;
+    }
+    @keyframes turn-glow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.12); }
+    }
+    #turnIndicator.turn-flash {
+      animation: turn-flash 0.65s ease;
+    }
+    @keyframes turn-flash {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
     
     /* Stack indicator */
     #stackIndicator {
       position: absolute;
-      top: -30px;
-      background: #e94560;
-      padding: 5px 15px;
-      border-radius: 20px;
-      font-weight: bold;
+      top: -36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #ff7b8d, var(--accent-hot));
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-family: var(--font-display);
       display: none;
+      box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+      border: 1px solid rgba(255,255,255,0.25);
+      animation: stack-pop 0.5s ease;
+    }
+    @keyframes stack-pop {
+      from { transform: translateX(-50%) scale(0.85); opacity: 0; }
+      to { transform: translateX(-50%) scale(1); opacity: 1; }
     }
     
     /* Messages */
@@ -199,38 +487,86 @@
       position: fixed;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%);
-      background: #e94560;
-      padding: 20px 40px;
-      border-radius: 15px;
-      font-size: 1.3rem;
-      display: none;
+      transform: translate(-50%, -50%) scale(0.92);
+      background: linear-gradient(145deg, #ff6b8b, var(--accent-hot));
+      padding: 22px 36px;
+      border-radius: 20px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      font-family: var(--font-display);
       z-index: 200;
+      box-shadow: 0 20px 50px rgba(233, 69, 96, 0.45);
+      border: 1px solid rgba(255,255,255,0.25);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.34, 1.25, 0.64, 1), visibility 0.28s;
+      max-width: min(90vw, 360px);
+      text-align: center;
+    }
+    #message.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
     }
     
     /* Opponents */
     #opponents {
       display: flex;
       justify-content: center;
-      gap: 15px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .opponent {
       text-align: center;
-      padding: 10px;
-      background: #16213e;
-      border-radius: 10px;
-      min-width: 80px;
+      padding: 12px 14px;
+      background: rgba(22, 33, 62, 0.8);
+      backdrop-filter: blur(8px);
+      border-radius: 14px;
+      min-width: 88px;
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s;
+      font-family: var(--font-display);
     }
-    .opponent.active { border: 2px solid #00d2d3; }
-    .opponent-cards { font-size: 1.5rem; }
+    .opponent.active {
+      border: 2px solid var(--accent);
+      box-shadow:
+        0 0 0 1px rgba(0, 210, 211, 0.25),
+        0 8px 28px rgba(0, 210, 211, 0.2);
+      transform: scale(1.04);
+    }
+    .opponent.turn-pulse-opponent {
+      animation: opponent-pop 0.55s ease;
+    }
+    @keyframes opponent-pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.08); }
+      100% { transform: scale(1.04); }
+    }
+    .opponent-cards { font-size: 1.45rem; margin-top: 4px; }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #deckCard, #discardCard { animation: none; }
+      .hand-card.card.playable {
+        animation: none;
+        box-shadow: 0 0 0 2px var(--playable-glow), var(--shadow-card);
+      }
+      #turnIndicator.my-turn { animation: none; }
+    }
     
     /* Desktop tweaks */
     @media (min-width: 768px) {
       .card { width: 100px; height: 150px; }
       .hand-card { width: 90px; height: 135px; }
       #hand { justify-content: center; flex-wrap: wrap; overflow-x: visible; }
+      #turnIndicator { font-size: 1.1rem; }
+      #turnIndicator.my-turn { font-size: 1.25rem; }
     }
   </style>
 </head>
@@ -272,29 +608,40 @@
   
   <div id="opponents"></div>
   
-  <div id="table">
-    <div id="stackIndicator">Draw +<span id="stackCount">0</span></div>
-    <div id="deckCard" class="card"></div>
-    <div id="discardCard" class="card"></div>
+  <div id="tableSection">
+    <div id="currentColorIndicator" aria-live="polite">
+      <span class="current-color-label">Match</span>
+      <span id="currentColorSwatch" class="current-color-swatch" role="img" aria-hidden="true"></span>
+      <span id="currentColorName" class="current-color-name">—</span>
+    </div>
+    <div id="tableMat">
+      <div id="table">
+        <div id="stackIndicator">Draw +<span id="stackCount">0</span></div>
+        <div id="deckCard" class="card"></div>
+        <div id="discardCard" class="card"></div>
+      </div>
+    </div>
   </div>
   
   <div id="controls">
-    <button id="drawBtn" onclick="drawCard()">DRAW</button>
+    <button id="drawBtn" type="button" onclick="drawCard()">DRAW</button>
   </div>
   
   <div id="hand"></div>
 </div>
 
-<!-- Color Picker for Wilds -->
-<div id="colorPicker">
-  <h3>Choose Color:</h3>
-  <div>
-    <button class="color-btn" style="background:#ff6b6b" onclick="pickColor('red')"></button>
-    <button class="color-btn" style="background:#48dbfb" onclick="pickColor('blue')"></button>
-  </div>
-  <div>
-    <button class="color-btn" style="background:#1dd1a1" onclick="pickColor('green')"></button>
-    <button class="color-btn" style="background:#feca57" onclick="pickColor('yellow')"></button>
+<!-- ColorPicker for Wilds -->
+<div id="colorPickerOverlay">
+  <div id="colorPickerPanel" onclick="event.stopPropagation()">
+    <h3>Choose a color</h3>
+    <div>
+      <button type="button" class="color-btn" style="background:#ff6b6b" onclick="pickColor('red')" aria-label="Red"></button>
+      <button type="button" class="color-btn" style="background:#48dbfb" onclick="pickColor('blue')" aria-label="Blue"></button>
+    </div>
+    <div>
+      <button type="button" class="color-btn" style="background:#1dd1a1" onclick="pickColor('green')" aria-label="Green"></button>
+      <button type="button" class="color-btn" style="background:#feca57" onclick="pickColor('yellow')" aria-label="Yellow"></button>
+    </div>
   </div>
 </div>
 
@@ -363,7 +710,32 @@ let myRoomCode;
 let myName;
 let currentRoom = null;
 let selectedCardIndex = null;
-let pendingWildColor = null;
+let prevMyTurn = null;
+let prevTurnPlayerId = null;
+let messageTimer = null;
+
+const COLOR_HEX = {
+  red: '#ff6b6b',
+  blue: '#48dbfb',
+  green: '#1dd1a1',
+  yellow: '#feca57',
+  wild: '#7986ff'
+};
+
+function colorKeyLabel(key) {
+  if (!key) return '—';
+  if (key === 'wild') return 'Wild';
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function openColorPicker() {
+  const ov = document.getElementById('colorPickerOverlay');
+  ov.classList.add('open');
+}
+
+function closeColorPicker() {
+  document.getElementById('colorPickerOverlay').classList.remove('open');
+}
 
 // Check for reconnection
 const savedId = localStorage.getItem('unoPlayerId');
@@ -529,20 +901,26 @@ function startGame() {
 function showGame() {
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('game').style.display = 'block';
-  document.getElementById('roomCodeDisplay').textContent = `Room: ${myRoomCode}`;
+  document.getElementById('roomCodeDisplay').innerHTML =
+    `<span class="room-badge"><span>Room</span><span class="room-badge-code">${myRoomCode}</span></span>`;
 }
 
 function updateGameView() {
   const me = currentRoom.players.find(p => p.id === myId);
   const isMyTurn = currentRoom.players[currentRoom.turn].id === myId;
-  
-  // Turn indicator
   const currentPlayer = currentRoom.players[currentRoom.turn];
+  const currentTurnId = currentPlayer.id;
+  const turnChanged = prevTurnPlayerId !== null && prevTurnPlayerId !== currentTurnId;
+
   const turnEl = document.getElementById('turnIndicator');
   turnEl.textContent = isMyTurn ? 'YOUR TURN!' : `${currentPlayer.name}'s turn`;
   turnEl.className = isMyTurn ? 'my-turn' : '';
-  
-  // Opponents
+  if (prevMyTurn !== null && prevMyTurn !== isMyTurn) {
+    turnEl.classList.add('turn-flash');
+    setTimeout(() => turnEl.classList.remove('turn-flash'), 700);
+  }
+  prevMyTurn = isMyTurn;
+
   const opponentsEl = document.getElementById('opponents');
   const myIndex = currentRoom.players.findIndex(p => p.id === myId);
   const opponents = [];
@@ -556,13 +934,40 @@ function updateGameView() {
       <div class="opponent-cards">🂠${p.hand.length}</div>
     </div>
   `).join('');
-  
-  // Table
-  const topCard = currentRoom.discard[currentRoom.discard.length - 1];
+  if (turnChanged) {
+    const activeOpp = opponentsEl.querySelector('.opponent.active');
+    if (activeOpp) {
+      activeOpp.classList.add('turn-pulse-opponent');
+      setTimeout(() => activeOpp.classList.remove('turn-pulse-opponent'), 600);
+    }
+  }
+  prevTurnPlayerId = currentTurnId;
+
+  const topCardObj = currentRoom.discard[currentRoom.discard.length - 1];
   document.getElementById('deckCard').innerHTML = getCardBackSVG();
-  document.getElementById('discardCard').innerHTML = getCardSVG(topCard);
-  
-  // Stack indicator
+  document.getElementById('discardCard').innerHTML = getCardSVG(topCardObj);
+
+  const eff = effectiveTopColor(topCardObj);
+  const handEl = document.getElementById('hand');
+  handEl.style.setProperty('--playable-glow', COLOR_HEX[eff] || '#48dbfb');
+
+  const swatch = document.getElementById('currentColorSwatch');
+  const nameEl = document.getElementById('currentColorName');
+  const strip = document.getElementById('currentColorIndicator');
+  if (topCardObj.color === 'wild' && !topCardObj.chosenColor) {
+    swatch.classList.add('wild-swatch');
+    swatch.style.background = 'transparent';
+    nameEl.textContent = 'Wild';
+  } else {
+    swatch.classList.remove('wild-swatch');
+    swatch.style.background = COLOR_HEX[eff] || '#666';
+    nameEl.textContent = colorKeyLabel(eff);
+  }
+  if (turnChanged) {
+    strip.classList.add('turn-pulse');
+    setTimeout(() => strip.classList.remove('turn-pulse'), 600);
+  }
+
   const stackEl = document.getElementById('stackIndicator');
   if (currentRoom.drawStack > 0) {
     stackEl.style.display = 'block';
@@ -570,20 +975,17 @@ function updateGameView() {
   } else {
     stackEl.style.display = 'none';
   }
-  
-  // My hand
-  const handEl = document.getElementById('hand');
-  const topCardObj = currentRoom.discard[currentRoom.discard.length - 1];
-  
+
   handEl.innerHTML = me.hand.map((card, i) => {
     const canPlay = isMyTurn && canPlayCard(card, topCardObj, currentRoom.drawStack);
-    return `<div class="hand-card card ${canPlay ? 'playable' : ''}" 
+    const delay = Math.min(i * 0.045, 0.55);
+    return `<div class="hand-card card hand-card-enter ${canPlay ? 'playable' : ''}" 
+                 style="animation-delay: ${delay}s"
                  onclick="${canPlay ? `playCard(${i})` : ''}">
       ${getCardSVG(card, true)}
     </div>`;
   }).join('');
-  
-  // Controls
+
   document.getElementById('drawBtn').style.display = isMyTurn ? 'block' : 'none';
 }
 
@@ -617,7 +1019,7 @@ function playCard(index) {
   
   if (card.color === 'wild') {
     selectedCardIndex = index;
-    document.getElementById('colorPicker').style.display = 'block';
+    openColorPicker();
     return;
   }
   
@@ -630,7 +1032,7 @@ function playCard(index) {
 }
 
 function pickColor(color) {
-  document.getElementById('colorPicker').style.display = 'none';
+  closeColorPicker();
   ws.send(JSON.stringify({
     type: 'play',
     roomCode: myRoomCode,
@@ -651,9 +1053,12 @@ function drawCard() {
 
 function showMessage(text) {
   const el = document.getElementById('message');
+  clearTimeout(messageTimer);
   el.textContent = text;
-  el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 3000);
+  el.classList.add('show');
+  messageTimer = setTimeout(() => {
+    el.classList.remove('show');
+  }, 3000);
 }
 
 // Initialize
