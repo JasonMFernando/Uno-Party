@@ -9,29 +9,40 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-deep: #12101c;
-      --bg-mid: #1a1a2e;
-      --surface: #16213e;
-      --surface-2: #0f3460;
+      --bg-deep: #163a62;
+      --bg-mid: #285a8c;
+      --surface: rgba(28, 58, 98, 0.92);
+      --surface-2: #1e4a78;
       --accent: #00d2d3;
       --accent-hot: #e94560;
-      --text: #f4f6ff;
-      --muted: rgba(244, 246, 255, 0.72);
-      --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.35);
-      --shadow-card: 0 12px 24px rgba(0, 0, 0, 0.4);
+      --uno-red: #e63946;
+      --uno-yellow: #ffd43b;
+      --uno-blue: #4dabf7;
+      --text: #f8fafc;
+      --muted: rgba(248, 250, 252, 0.78);
+      --shadow-soft: 0 8px 32px rgba(15, 40, 70, 0.35);
+      --shadow-card: 0 12px 28px rgba(15, 35, 60, 0.45);
       --playable-glow: #48dbfb;
       --font-display: 'Fredoka', -apple-system, BlinkMacSystemFont, sans-serif;
-      --felt: radial-gradient(ellipse 120% 80% at 50% 100%, #1b2847 0%, #14182a 55%, #0d1018 100%);
+      --felt: radial-gradient(ellipse 115% 90% at 50% 95%, #1a6b7a 0%, #1d5a7a 42%, #174066 100%);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-mid);
+      background-color: var(--bg-mid);
       background-image:
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 210, 211, 0.12), transparent 55%),
-        radial-gradient(ellipse 60% 40% at 100% 80%, rgba(233, 69, 96, 0.08), transparent 45%),
-        linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 40%, #151625 100%);
+        repeating-linear-gradient(
+          -28deg,
+          transparent,
+          transparent 14px,
+          rgba(255, 255, 255, 0.02) 14px,
+          rgba(255, 255, 255, 0.02) 16px
+        ),
+        radial-gradient(ellipse 90% 55% at 8% 18%, rgba(230, 57, 70, 0.22), transparent 52%),
+        radial-gradient(ellipse 75% 50% at 92% 12%, rgba(255, 212, 59, 0.2), transparent 48%),
+        radial-gradient(ellipse 70% 45% at 50% 100%, rgba(77, 171, 247, 0.12), transparent 55%),
+        linear-gradient(165deg, #1e4a78 0%, var(--bg-mid) 38%, var(--bg-deep) 100%);
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
@@ -145,10 +156,10 @@
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: rgba(22, 33, 62, 0.75);
+      background: rgba(30, 74, 120, 0.82);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 16px;
       margin-bottom: 14px;
       box-shadow: var(--shadow-soft);
@@ -173,6 +184,25 @@
       color: var(--accent);
       letter-spacing: 0.12em;
     }
+    #exitBtn {
+      flex-shrink: 0;
+      width: auto;
+      min-width: 0;
+      padding: 8px 14px;
+      margin: 0;
+      font-size: 0.8rem;
+      font-family: var(--font-display);
+      font-weight: 600;
+      border-radius: 999px;
+      background: rgba(233, 69, 96, 0.25);
+      color: #ffb3c0;
+      border: 1px solid rgba(233, 69, 96, 0.55);
+      box-shadow: none;
+    }
+    #exitBtn:hover {
+      background: rgba(233, 69, 96, 0.4);
+      color: #fff;
+    }
 
     #tableSection {
       display: flex;
@@ -187,7 +217,7 @@
       align-items: center;
       gap: 10px;
       padding: 10px 18px;
-      background: rgba(15, 52, 96, 0.65);
+      background: rgba(26, 80, 128, 0.72);
       backdrop-filter: blur(8px);
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.1);
@@ -231,10 +261,11 @@
       background: var(--felt);
       border-radius: 24px;
       padding: 28px 24px 32px;
-      border: 1px solid rgba(255,255,255,0.07);
+      border: 1px solid rgba(255, 232, 120, 0.12);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.06),
-        var(--shadow-soft);
+        inset 0 2px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -8px 24px rgba(0, 30, 50, 0.15),
+        0 12px 40px rgba(15, 55, 85, 0.4);
       width: 100%;
       max-width: 420px;
     }
@@ -362,15 +393,22 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(180deg, transparent 0%, rgba(15, 52, 96, 0.97) 18%, var(--surface-2) 100%);
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(40, 90, 140, 0.45) 14%,
+        rgba(30, 74, 120, 0.94) 35%,
+        #1a5080 100%
+      );
       padding: 18px 16px;
       display: flex;
       gap: 10px;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 12px);
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255, 212, 59, 0.15);
       z-index: 40;
+      box-shadow: 0 -12px 40px rgba(22, 60, 100, 0.35);
     }
     #hand::-webkit-scrollbar { height: 8px; }
     #hand::-webkit-scrollbar-thumb { background: var(--accent-hot); border-radius: 4px; }
@@ -521,7 +559,7 @@
     .opponent {
       text-align: center;
       padding: 12px 14px;
-      background: rgba(22, 33, 62, 0.8);
+      background: rgba(30, 74, 120, 0.78);
       backdrop-filter: blur(8px);
       border-radius: 14px;
       min-width: 88px;
@@ -595,6 +633,7 @@
     <h2>Room: <span id="displayCode"></span></h2>
     <div id="playersList"></div>
     <button id="startBtn" class="btn-danger" onclick="startGame()" style="display:none;">START GAME</button>
+    <button type="button" id="leaveRoomLobbyBtn" class="btn-warning" onclick="leaveGame()" style="margin-top:12px">Leave room</button>
     <p id="waitingText">Waiting for host to start...</p>
   </div>
 </div>
@@ -604,6 +643,7 @@
   <div id="topBar">
     <span id="roomCodeDisplay"></span>
     <span id="turnIndicator"></span>
+    <button type="button" id="exitBtn" onclick="leaveGame()">Exit</button>
   </div>
   
   <div id="opponents"></div>
@@ -648,58 +688,168 @@
 <div id="message"></div>
 
 <script>
-// SVG Card Generator
+// SVG Card Generator (classic four-color layout; original art, not retail UNO)
 function getCardSVG(card, isSmall=false) {
   const w = isSmall ? 70 : 100;
   const h = isSmall ? 105 : 150;
-  const colorMap = {
-    red: '#ff6b6b', blue: '#48dbfb', green: '#1dd1a1', yellow: '#feca57', wild: '#1a1a2e'
+  const fontCard = "Fredoka, system-ui, sans-serif";
+
+  const face = {
+    red: '#ff5a5f',
+    blue: '#2bb8f5',
+    green: '#2dce89',
+    yellow: '#ffd43b',
+    wild: '#3d3d54'
   };
-  
-  let bg = colorMap[card.color] || '#333';
-  let content = '';
-  
+  const edge = {
+    red: '#c92a2a',
+    blue: '#1864ab',
+    green: '#1b7a4c',
+    yellow: '#c9a227',
+    wild: '#1e1e2e'
+  };
+  const bar = {
+    red: '#ff6b6b',
+    blue: '#48dbfb',
+    green: '#1dd1a1',
+    yellow: '#feca57'
+  };
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const inset = isSmall ? 4.5 : 6;
+  const rxOut = isSmall ? 8 : 11;
+  const rxIn = isSmall ? 6 : 9;
+  const cream = '#faf6ed';
+  const cornerFs = isSmall ? 11 : 15;
+  const cornerW = isSmall ? 13 : 17;
+  const cornerH = isSmall ? 16 : 20;
+  const cxOff = isSmall ? 12 : 16;
+  const cyOff = isSmall ? 14 : 20;
+  const ovalRx = w * 0.34;
+  const ovalRy = h * 0.24;
+  const centerFs = isSmall ? 26 : 38;
+  const actionFs = isSmall ? 17 : 24;
+
+  function cornerGroup(glyph, colorFill, colorEdge) {
+    const gx = cxOff;
+    const gy = cyOff;
+    const box = `
+      <rect x="${gx - cornerW / 2}" y="${gy - cornerH / 2}" width="${cornerW}" height="${cornerH}" rx="3"
+        fill="#fff" stroke="${colorEdge}" stroke-width="1.2"/>
+      <text x="${gx}" y="${gy + (isSmall ? 3.5 : 5)}" text-anchor="middle" fill="${colorFill}"
+        font-size="${cornerFs}" font-weight="700" font-family="${fontCard}">${glyph}</text>`;
+    return `${box}
+      <g transform="translate(${w},${h}) rotate(180)">${box}</g>`;
+  }
+
+  function centerOval(fill, strokeCol) {
+    return `<ellipse cx="${cx}" cy="${cy}" rx="${ovalRx}" ry="${ovalRy}" fill="${fill}" stroke="${strokeCol}" stroke-width="${isSmall ? 1.2 : 1.8}"/>`;
+  }
+
+  let parts = [];
+
   if (card.color === 'wild') {
-    bg = '#1a1a2e';
-    content = `<rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#ff6b6b" transform="rotate(20 ${w/2} ${h/2})"/>
-               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#48dbfb" transform="rotate(110 ${w/2} ${h/2})"/>
-               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#1dd1a1" transform="rotate(200 ${w/2} ${h/2})"/>
-               <rect x="10" y="10" width="${w-20}" height="${h-20}" fill="#feca57" transform="rotate(290 ${w/2} ${h/2})"/>
-               <text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="white" font-size="${isSmall?16:24}" font-weight="bold">${card.type==='+4'?'+4':'W'}</text>`;
-  } else if (card.type === 'number') {
-    content = `<text x="${w/2}" y="${h/2+10}" text-anchor="middle" fill="white" font-size="${isSmall?30:40}" font-weight="bold">${card.value}</text>
-               <ellipse cx="${w/2}" cy="${h/2}" rx="${w/3}" ry="${h/3}" fill="white" fill-opacity="0.3"/>`;
-  } else if (card.type === 'skip') {
-    content = `<circle cx="${w/2}" cy="${h/2}" r="${isSmall?20:30}" fill="none" stroke="white" stroke-width="${isSmall?4:6}"/>
-               <line x1="${w/2-15}" y1="${h/2}" x2="${w/2+15}" y2="${h/2}" stroke="white" stroke-width="${isSmall?4:6}" transform="rotate(45 ${w/2} ${h/2})"/>`;
-  } else if (card.type === 'reverse') {
-    content = `<path d="M ${w/2-20} ${h/2} L ${w/2+10} ${h/2-15} L ${w/2+10} ${h/2+15} Z" fill="white"/>
-               <path d="M ${w/2+20} ${h/2} L ${w/2-10} ${h/2-15} L ${w/2-10} ${h/2+15} Z" fill="white"/>`;
-  } else if (card.type === '+2') {
-    content = `<text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="white" font-size="${isSmall?20:28}" font-weight="bold">+2</text>`;
+    const barH = card.chosenColor ? (isSmall ? 6 : 8) : 0;
+    parts.push(`<rect width="${w}" height="${h}" rx="${rxOut}" fill="${edge.wild}" stroke="#fff" stroke-width="${isSmall ? 1.5 : 2}"/>`);
+    parts.push(`<rect x="${inset}" y="${inset}" width="${w - inset * 2}" height="${h - inset * 2}" rx="${rxIn}" fill="${cream}" stroke="#2b2d42" stroke-width="1"/>`);
+    if (card.chosenColor) {
+      const bc = bar[card.chosenColor];
+      parts.push(`<rect x="${inset + 2}" y="${inset + 2}" width="${w - inset * 2 - 4}" height="${barH}" fill="${bc}" rx="2"/>`);
+    }
+    const ix = inset + 3;
+    const iy = card.chosenColor ? inset + 2 + barH + 2 : inset + 4;
+    const iw = w - inset * 2 - 6;
+    const ih = h - iy - inset - 3;
+    const imx = ix + iw / 2;
+    const imy = iy + ih / 2;
+    parts.push(`<path d="M${ix} ${iy} L${imx} ${iy} L${ix} ${imy} Z" fill="${face.red}"/>`);
+    parts.push(`<path d="M${ix + iw} ${iy} L${ix + iw} ${imy} L${imx} ${iy} Z" fill="${face.blue}"/>`);
+    parts.push(`<path d="M${ix} ${iy + ih} L${ix} ${imy} L${imx} ${iy + ih} Z" fill="${face.yellow}"/>`);
+    parts.push(`<path d="M${ix + iw} ${iy + ih} L${imx} ${iy + ih} L${ix + iw} ${imy} Z" fill="${face.green}"/>`);
+    const mid = card.type === '+4' ? '+4' : 'W';
+    const midFs = card.type === '+4' ? (isSmall ? 15 : 22) : (isSmall ? 18 : 26);
+    parts.push(centerOval('#fff', '#2b2d42'));
+    parts.push(`<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="#2b2d42"
+      font-size="${midFs}" font-weight="800" font-family="${fontCard}">${mid}</text>`);
+    parts.push(cornerGroup(mid, '#2b2d42', '#2b2d42'));
+  } else {
+    const c = card.color;
+    const f = face[c] || '#888';
+    const e = edge[c] || '#333';
+    parts.push(`<rect width="${w}" height="${h}" rx="${rxOut}" fill="${e}" stroke="#fff" stroke-width="${isSmall ? 1.5 : 2}"/>`);
+    parts.push(`<rect x="${inset}" y="${inset}" width="${w - inset * 2}" height="${h - inset * 2}" rx="${rxIn}" fill="${cream}" stroke="${e}" stroke-width="1.2"/>`);
+
+    let cornerGlyph = '';
+    let centerInner = '';
+
+    if (card.type === 'number') {
+      cornerGlyph = String(card.value);
+      centerInner = centerOval('#fff', e) +
+        `<text x="${cx}" y="${cy + (isSmall ? 8 : 11)}" text-anchor="middle" fill="${e}"
+          font-size="${centerFs}" font-weight="800" font-family="${fontCard}">${card.value}</text>`;
+    } else if (card.type === 'skip') {
+      cornerGlyph = '✕';
+      const rr = isSmall ? 12 : 18;
+      const sw = isSmall ? 2.8 : 3.5;
+      centerInner = centerOval('#fff', e) +
+        `<g transform="translate(${cx},${cy})">
+          <circle r="${rr}" fill="none" stroke="${e}" stroke-width="${sw}"/>
+          <line x1="${-rr * 0.65}" y1="0" x2="${rr * 0.65}" y2="0" stroke="${e}" stroke-width="${sw}" transform="rotate(45)"/>
+        </g>`;
+    } else if (card.type === 'reverse') {
+      cornerGlyph = '⇄';
+      const s = isSmall ? 0.55 : 0.85;
+      centerInner = centerOval('#fff', e) +
+        `<g transform="translate(${cx},${cy}) scale(${s})">
+          <path d="M -22 0 L -8 -12 L -8 -4 L 8 -4 L 8 -12 L 22 0 L 8 12 L 8 4 L -8 4 L -8 12 Z" fill="${e}"/>
+        </g>`;
+    } else if (card.type === '+2') {
+      cornerGlyph = '+2';
+      centerInner = centerOval('#fff', e) +
+        `<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="${e}"
+          font-size="${actionFs}" font-weight="800" font-family="${fontCard}">+2</text>`;
+    }
+
+    parts.push(centerInner);
+    parts.push(cornerGroup(cornerGlyph, e, e));
   }
-  
-  // Chosen color indicator for wilds
-  if (card.chosenColor) {
-    const c = colorMap[card.chosenColor];
-    content += `<rect x="5" y="5" width="${w-10}" height="8" fill="${c}" rx="2"/>`;
-  }
-  
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;">
-    <rect width="${w}" height="${h}" rx="10" fill="${bg}" stroke="white" stroke-width="2"/>
-    <rect x="5" y="5" width="${w-10}" height="${h-10}" rx="8" fill="none" stroke="white" stroke-width="1" stroke-opacity="0.5"/>
-    ${content}
+
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
+    ${parts.join('\n')}
   </svg>`;
 }
 
 function getCardBackSVG(isSmall=false) {
   const w = isSmall ? 70 : 100;
   const h = isSmall ? 105 : 150;
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;">
-    <rect width="${w}" height="${h}" rx="10" fill="#0f3460" stroke="white" stroke-width="2"/>
-    <rect x="8" y="8" width="${w-16}" height="${h-16}" rx="6" fill="#e94560"/>
-    <circle cx="${w/2}" cy="${h/2}" r="${isSmall?15:25}" fill="#0f3460"/>
-    <text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="#e94560" font-size="${isSmall?12:20}" font-weight="bold">UNO</text>
+  const fontCard = "Fredoka, system-ui, sans-serif";
+  const blue = '#1c4f82';
+  const blueHi = '#2563a8';
+  const red = '#e84d4d';
+  const yellow = '#f5cc35';
+  const cyan = '#3ecfff';
+  const cx = w / 2;
+  const cy = h / 2;
+
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="backHi" cx="35%" cy="30%" r="65%">
+        <stop offset="0%" stop-color="${blueHi}"/>
+        <stop offset="100%" stop-color="${blue}"/>
+      </radialGradient>
+    </defs>
+    <rect width="${w}" height="${h}" rx="11" fill="url(#backHi)" stroke="#fff" stroke-width="${isSmall ? 1.5 : 2}"/>
+    <rect x="5" y="5" width="${w - 10}" height="${h - 10}" rx="8" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.2"/>
+    <path d="M -8 ${h * 0.35} L${w * 0.55} -6 L${w + 6} ${h * 0.2} L${w * 0.4} ${h + 8} Z" fill="${red}" opacity="0.85" transform="translate(0,0)"/>
+    <path d="M${w * 0.5} -4 L${w + 10} ${h * 0.45} L${w - 4} ${h + 6} L${w * 0.15} ${h * 0.55} Z" fill="${yellow}" opacity="0.8"/>
+    <ellipse cx="${w * 0.82}" cy="${h * 0.75}" rx="${w * 0.35}" ry="${h * 0.22}" fill="${cyan}" opacity="0.35"/>
+    <circle cx="${w * 0.18}" cy="${h * 0.72}" r="${isSmall ? 14 : 20}" fill="none" stroke="${yellow}" stroke-width="2.5" opacity="0.9"/>
+    <circle cx="${w * 0.78}" cy="${h * 0.28}" r="${isSmall ? 11 : 16}" fill="none" stroke="${red}" stroke-width="2" opacity="0.85"/>
+    <circle cx="${cx}" cy="${cy}" r="${isSmall ? 17 : 26}" fill="rgba(15,40,70,0.55)" stroke="#fff" stroke-width="2"/>
+    <text x="${cx}" y="${cy + (isSmall ? 4 : 6)}" text-anchor="middle" fill="${yellow}" font-size="${isSmall ? 11 : 15}"
+      font-weight="700" font-family="${fontCard}" letter-spacing="0.06em">PARTY</text>
+    <circle cx="${cx}" cy="${cy}" r="${isSmall ? 22 : 32}" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
   </svg>`;
 }
 
@@ -805,6 +955,7 @@ function handleMessage(msg) {
       break;
       
     case 'playerJoined':
+    case 'playerLeft':
     case 'playerDisconnected':
     case 'playerReconnected':
       if (msg.room) currentRoom = msg.room;
@@ -816,7 +967,8 @@ function handleMessage(msg) {
         }
       }
       const pname = msg.playerName || (msg.player && msg.player.name) || 'Someone';
-      showMessage(`${pname} ${msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected'}!`);
+      const evt = msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerLeft' ? 'left' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected';
+      showMessage(`${pname} ${evt}!`);
       break;
       
     case 'gameStarted':
@@ -829,11 +981,36 @@ function handleMessage(msg) {
       currentRoom = msg.room;
       updateGameView();
       break;
+
+    case 'roundOver':
+      showMessage(`${msg.winner} wins this round — next round in a moment!`);
+      break;
+
+    case 'newRound':
+      currentRoom = msg.room;
+      saveSession();
+      showGame();
+      prevMyTurn = null;
+      prevTurnPlayerId = null;
+      updateGameView();
+      showMessage('New round — good luck!');
+      break;
+
+    case 'leftRoom':
+      returnToMainMenu();
+      showMessage('You left the room.');
+      break;
       
     case 'gameOver':
-      showMessage(`${msg.winner} WINS!`);
-      clearSession();
-      setTimeout(() => location.reload(), 5000);
+      if (msg.reason === 'lastPlayer') {
+        showMessage(`${msg.winner} wins — last player standing!`);
+      } else {
+        showMessage(`${msg.winner} wins!`);
+      }
+      if (msg.final !== false) {
+        clearSession();
+        setTimeout(() => location.reload(), 5000);
+      }
       break;
       
     case 'error':
@@ -852,6 +1029,38 @@ function clearSession() {
   localStorage.removeItem('unoPlayerId');
   localStorage.removeItem('unoRoomCode');
   localStorage.removeItem('unoPlayerName');
+}
+
+function returnToMainMenu() {
+  const nameKeep = (typeof myName === 'string' && myName) ? myName : (localStorage.getItem('unoPlayerName') || '');
+  clearSession();
+  if (nameKeep) {
+    myName = nameKeep;
+    localStorage.setItem('unoPlayerName', nameKeep);
+    const nameInput = document.getElementById('playerName');
+    if (nameInput) nameInput.value = nameKeep;
+  }
+  currentRoom = null;
+  myId = null;
+  myRoomCode = null;
+  prevMyTurn = null;
+  prevTurnPlayerId = null;
+  selectedCardIndex = null;
+  closeColorPicker();
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  document.getElementById('roomInfo').style.display = 'none';
+  document.getElementById('nameInput').style.display = 'block';
+  document.getElementById('menu').style.display = 'none';
+}
+
+function leaveGame() {
+  if (!myRoomCode || !myId || ws.readyState !== WebSocket.OPEN) return;
+  const inGame = document.getElementById('game').style.display === 'block' && currentRoom && currentRoom.started;
+  if (!confirm(inGame
+    ? 'Leave the game? Your cards are shuffled back into the deck.'
+    : 'Leave this room?')) return;
+  ws.send(JSON.stringify({ type: 'leave', roomCode: myRoomCode, playerId: myId }));
 }
 
 function showMenu() {
@@ -906,7 +1115,9 @@ function showGame() {
 }
 
 function updateGameView() {
+  if (!currentRoom || !currentRoom.players || !currentRoom.discard || !currentRoom.discard.length) return;
   const me = currentRoom.players.find(p => p.id === myId);
+  if (!me) return;
   const isMyTurn = currentRoom.players[currentRoom.turn].id === myId;
   const currentPlayer = currentRoom.players[currentRoom.turn];
   const currentTurnId = currentPlayer.id;

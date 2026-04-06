@@ -82,6 +82,24 @@ function broadcast(roomCode, message, excludeWs = null) {
   });
 }
 
+function clearRoundTimer(room) {
+  if (room && room.roundTimer) {
+    clearTimeout(room.roundTimer);
+    room.roundTimer = null;
+  }
+}
+
+function startNewRound(room) {
+  room.deck = createDeck();
+  room.discard = [room.deck.pop()];
+  room.drawStack = 0;
+  room.direction = 1;
+  room.turn = 0;
+  for (const p of room.players) {
+    p.hand = room.deck.splice(0, 7);
+  }
+}
+
 wss.on('connection', (ws) => {
   console.log('Client connected');
 
@@ -126,7 +144,8 @@ wss.on('connection', (ws) => {
         started: false,
         turn: 0,
         direction: 1,
-        drawStack: 0 // For stacking +2/+4
+        drawStack: 0, // For stacking +2/+4
+        roundTimer: null
       };
       playerSockets.set(ws, {roomCode: code, playerId: newPlayerId});
       ws.send(JSON.stringify({type: 'created', roomCode: code, playerId: newPlayerId, room: rooms[code]}));
@@ -166,6 +185,7 @@ wss.on('connection', (ws) => {
       const room = rooms[roomCode];
       if (!room || room.hostId !== playerId || room.players.length < 2) return;
       
+      clearRoundTimer(room);
       room.started = true;
       room.deck = createDeck();
       room.discard = [room.deck.pop()]; // Starting card
@@ -235,8 +255,24 @@ wss.on('connection', (ws) => {
       
       // Check win
       if (player.hand.length === 0) {
-        broadcast(roomCode, {type: 'gameOver', winner: player.name});
-        delete rooms[roomCode];
+        clearRoundTimer(room);
+        const winnerName = player.name;
+        const winnerId = player.id;
+        if (room.players.length <= 1) {
+          broadcast(roomCode, {type: 'gameOver', winner: winnerName, final: true});
+          delete rooms[roomCode];
+          return;
+        }
+        broadcast(roomCode, {type: 'roundOver', winner: winnerName});
+        room.roundTimer = setTimeout(() => {
+          room.roundTimer = null;
+          const r = rooms[roomCode];
+          if (!r || !r.started || r.players.length < 2) return;
+          startNewRound(r);
+          const wi = r.players.findIndex(p => p.id === winnerId);
+          if (wi >= 0) r.turn = wi;
+          broadcast(roomCode, {type: 'newRound', room: r});
+        }, 4500);
         return;
       }
       
@@ -277,6 +313,69 @@ wss.on('connection', (ws) => {
       room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
       
       broadcast(roomCode, {type: 'stateUpdate', room});
+    }
+
+    // LEAVE ROOM / EXIT GAME (hands go back into deck)
+    if (type === 'leave') {
+      const room = rooms[roomCode];
+      if (!room) return;
+      const leaveIdx = room.players.findIndex(p => p.id === playerId);
+      if (leaveIdx === -1) return;
+      const quitter = room.players[leaveIdx];
+      clearRoundTimer(room);
+
+      for (const c of quitter.hand) {
+        if (c.color === 'wild') delete c.chosenColor;
+      }
+      room.deck.push(...quitter.hand);
+      shuffle(room.deck);
+
+      const wasCurrent = room.started && leaveIdx === room.turn;
+      const oldTurn = room.turn;
+
+      room.players.splice(leaveIdx, 1);
+      playerSockets.delete(ws);
+
+      try {
+        ws.send(JSON.stringify({type: 'leftRoom'}));
+      } catch (_) {}
+
+      if (quitter.id === room.hostId && room.players.length > 0) {
+        room.hostId = room.players[0].id;
+      }
+
+      if (room.players.length === 0) {
+        delete rooms[roomCode];
+        return;
+      }
+
+      if (room.players.length === 1) {
+        const sole = room.players[0];
+        broadcast(roomCode, {
+          type: 'gameOver',
+          winner: sole.name,
+          final: true,
+          reason: 'lastPlayer'
+        });
+        delete rooms[roomCode];
+        return;
+      }
+
+      if (!room.started) {
+        broadcast(roomCode, {type: 'playerLeft', playerName: quitter.name, room});
+        return;
+      }
+
+      if (!wasCurrent && leaveIdx < oldTurn) {
+        room.turn--;
+      } else if (wasCurrent) {
+        room.turn = leaveIdx % room.players.length;
+      }
+      room.turn = ((room.turn % room.players.length) + room.players.length) % room.players.length;
+
+      broadcast(roomCode, {type: 'playerLeft', playerName: quitter.name, room});
+      broadcast(roomCode, {type: 'stateUpdate', room});
+      return;
     }
 
     // DISCONNECT HANDLING
