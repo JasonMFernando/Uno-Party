@@ -26,6 +26,8 @@ const wss = new WebSocket.Server({ server });
 const rooms = {}; // code -> room data
 const playerSockets = new Map(); // ws -> {roomCode, playerId}
 
+const MAX_PLAYERS = 10;
+
 // Card definitions
 const COLORS = ['red', 'blue', 'green', 'yellow'];
 const NUMBERS = ['0','1','2','3','4','5','6','7','8','9'];
@@ -81,20 +83,103 @@ function generateCode() {
   return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
+function playerForClient(p) {
+  if (!p) return p;
+  const { ws, ...rest } = p;
+  return rest;
+}
+
+/** Strip WebSockets and Node timers — JSON.stringify cannot serialize them. */
+function roomForClient(room) {
+  if (!room) return room;
+  const {
+    turnTimer,
+    roundTimer,
+    turnTimerForPlayerId,
+    ...rest
+  } = room;
+  return {
+    ...rest,
+    players: room.players.map(playerForClient)
+  };
+}
+
 function broadcast(roomCode, message, excludeWs = null) {
+  let outgoing = message;
+  if (message.room || message.player) {
+    outgoing = { ...message };
+    if (message.room) outgoing.room = roomForClient(message.room);
+    if (message.player) outgoing.player = playerForClient(message.player);
+  }
   wss.clients.forEach(ws => {
     const info = playerSockets.get(ws);
     if (info && info.roomCode === roomCode && ws !== excludeWs && ws.readyState === 1) {
-      ws.send(JSON.stringify(message));
+      ws.send(JSON.stringify(outgoing));
     }
   });
 }
+
+const TURN_TIME_MS = 20000;
 
 function clearRoundTimer(room) {
   if (room && room.roundTimer) {
     clearTimeout(room.roundTimer);
     room.roundTimer = null;
   }
+}
+
+function clearTurnTimer(room) {
+  if (room && room.turnTimer) {
+    clearTimeout(room.turnTimer);
+    room.turnTimer = null;
+  }
+  if (room) {
+    room.turnTimerForPlayerId = null;
+    room.turnEndsAt = null;
+  }
+}
+
+function startTurnTimer(room, roomCode) {
+  clearTurnTimer(room);
+  if (!room.started || room.players.length < 2) return;
+  const current = room.players[room.turn];
+  if (!current) return;
+  const expectedId = current.id;
+  room.turnTimerForPlayerId = expectedId;
+  room.turnEndsAt = Date.now() + TURN_TIME_MS;
+  room.turnTimer = setTimeout(() => {
+    room.turnTimer = null;
+    room.turnTimerForPlayerId = null;
+    const r = rooms[roomCode];
+    if (!r || !r.started || r.players.length < 2) return;
+    if (r.players[r.turn].id !== expectedId) return;
+    if (!executeDrawForCurrentPlayer(r, roomCode)) {
+      startTurnTimer(r, roomCode);
+      broadcast(roomCode, { type: 'stateUpdate', room: r });
+      return;
+    }
+    startTurnTimer(r, roomCode);
+    broadcast(roomCode, { type: 'stateUpdate', room: r });
+  }, TURN_TIME_MS);
+}
+
+/** Draw for whoever is current; advances turn. Returns false if deck empty (rare). */
+function executeDrawForCurrentPlayer(room, roomCode) {
+  const player = room.players[room.turn];
+  if (!player) return false;
+  const drawCount = room.drawStack > 0 ? room.drawStack : 1;
+  if (room.deck.length < drawCount) {
+    const bottom = room.discard.slice(0, -1);
+    if (bottom.length === 0 && room.deck.length === 0) return false;
+    room.deck.push(...shuffle(bottom));
+    room.discard = [room.discard[room.discard.length - 1]];
+  }
+  if (room.deck.length < drawCount) return false;
+  const drawn = room.deck.splice(0, drawCount);
+  player.hand.push(...drawn);
+  room.drawStack = 0;
+  room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
+  return true;
 }
 
 function startNewRound(room) {
@@ -124,7 +209,7 @@ wss.on('connection', (ws) => {
           player.ws = ws;
           player.connected = true;
           playerSockets.set(ws, {roomCode, playerId});
-          ws.send(JSON.stringify({type: 'reconnected', room, you: player}));
+          ws.send(JSON.stringify({type: 'reconnected', room: roomForClient(room), you: playerForClient(player)}));
           broadcast(roomCode, {type: 'playerReconnected', playerName: player.name, room});
           return;
         }
@@ -153,10 +238,13 @@ wss.on('connection', (ws) => {
         turn: 0,
         direction: 1,
         drawStack: 0, // For stacking +2/+4
-        roundTimer: null
+        roundTimer: null,
+        turnTimer: null,
+        turnTimerForPlayerId: null,
+        turnEndsAt: null
       };
       playerSockets.set(ws, {roomCode: code, playerId: newPlayerId});
-      ws.send(JSON.stringify({type: 'created', roomCode: code, playerId: newPlayerId, room: rooms[code]}));
+      ws.send(JSON.stringify({type: 'created', roomCode: code, playerId: newPlayerId, room: roomForClient(rooms[code])}));
     }
 
     // JOIN ROOM
@@ -170,8 +258,8 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({type: 'error', message: 'Game already started'}));
         return;
       }
-      if (room.players.length >= 6) {
-        ws.send(JSON.stringify({type: 'error', message: 'Room full (max 6)'}));
+      if (room.players.length >= MAX_PLAYERS) {
+        ws.send(JSON.stringify({type: 'error', message: `Room full (max ${MAX_PLAYERS})`}));
         return;
       }
       const newPlayerId = Math.random().toString(36).substring(2, 10);
@@ -184,7 +272,7 @@ wss.on('connection', (ws) => {
       };
       room.players.push(player);
       playerSockets.set(ws, {roomCode, playerId: newPlayerId});
-      ws.send(JSON.stringify({type: 'joined', playerId: newPlayerId, room}));
+      ws.send(JSON.stringify({type: 'joined', playerId: newPlayerId, room: roomForClient(room)}));
       broadcast(roomCode, {type: 'playerJoined', player, room}, ws);
     }
 
@@ -194,6 +282,7 @@ wss.on('connection', (ws) => {
       if (!room || room.hostId !== playerId || room.players.length < 2) return;
       
       clearRoundTimer(room);
+      clearTurnTimer(room);
       room.started = true;
       room.deck = createDeck();
       room.discard = [takeStarterDiscard(room.deck)];
@@ -203,6 +292,7 @@ wss.on('connection', (ws) => {
         p.hand = room.deck.splice(0, 7);
       }
       
+      startTurnTimer(room, roomCode);
       broadcast(roomCode, {type: 'gameStarted', room});
     }
 
@@ -222,14 +312,13 @@ wss.on('connection', (ws) => {
       
       // Validation (basic - trust clients mostly)
       let valid = false;
-      if (card.color === 'wild') {
-        valid = true; // Wild can always play
-      } else if (room.drawStack > 0) {
-        // Must stack if possible
-        valid = (card.type === '+2' && topCard.type === '+2') || 
+      if (room.drawStack > 0) {
+        // Draw stack: only same-type stack or draw — plain wild cannot override +2/+4
+        valid = (card.type === '+2' && topCard.type === '+2') ||
                 (card.type === '+4' && topCard.type === '+4');
+      } else if (card.color === 'wild') {
+        valid = true;
       } else {
-        // Normal play: match color (including wild's chosen color) or type/value
         const topColor = effectiveTopColor(topCard);
         valid = card.color === topColor ||
                 (card.type === topCard.type && card.type !== 'number') ||
@@ -240,6 +329,8 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({type: 'invalidMove'}));
         return;
       }
+
+      clearTurnTimer(room);
       
       // Execute play
       player.hand.splice(cardIndex, 1);
@@ -264,6 +355,7 @@ wss.on('connection', (ws) => {
       // Check win
       if (player.hand.length === 0) {
         clearRoundTimer(room);
+        clearTurnTimer(room);
         const winnerName = player.name;
         const winnerId = player.id;
         if (room.players.length <= 1) {
@@ -279,6 +371,7 @@ wss.on('connection', (ws) => {
           startNewRound(r);
           const wi = r.players.findIndex(p => p.id === winnerId);
           if (wi >= 0) r.turn = wi;
+          startTurnTimer(r, roomCode);
           broadcast(roomCode, {type: 'newRound', room: r});
         }, 4500);
         return;
@@ -291,6 +384,7 @@ wss.on('connection', (ws) => {
         room.turn = (room.turn + 2 * room.direction + room.players.length) % room.players.length;
       }
       
+      startTurnTimer(room, roomCode);
       broadcast(roomCode, {type: 'stateUpdate', room});
     }
 
@@ -302,25 +396,83 @@ wss.on('connection', (ws) => {
       const player = room.players.find(p => p.id === playerId);
       const currentPlayer = room.players[room.turn];
       if (player !== currentPlayer) return;
-      
-      // If stack active, must draw all
-      const drawCount = room.drawStack > 0 ? room.drawStack : 1;
-      
-      // Replenish deck if needed
-      if (room.deck.length < drawCount) {
-        const bottom = room.discard.slice(0, -1);
-        room.deck.push(...shuffle(bottom));
-        room.discard = [room.discard[room.discard.length - 1]];
+
+      clearTurnTimer(room);
+      if (!executeDrawForCurrentPlayer(room, roomCode)) {
+        startTurnTimer(room, roomCode);
+        broadcast(roomCode, {type: 'stateUpdate', room});
+        return;
       }
-      
-      const drawn = room.deck.splice(0, drawCount);
-      player.hand.push(...drawn);
-      room.drawStack = 0; // Clear stack
-      
-      // Turn passes
-      room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
-      
+      startTurnTimer(room, roomCode);
       broadcast(roomCode, {type: 'stateUpdate', room});
+    }
+
+    // HOST KICK PLAYER
+    if (type === 'kick') {
+      const room = rooms[roomCode];
+      if (!room || room.hostId !== playerId) return;
+      const targetId = msg.targetPlayerId;
+      if (!targetId || targetId === playerId) return;
+      const kickIdx = room.players.findIndex(p => p.id === targetId);
+      if (kickIdx === -1) return;
+      const kicked = room.players[kickIdx];
+      const targetWs = kicked.ws;
+
+      clearRoundTimer(room);
+      clearTurnTimer(room);
+
+      for (const c of kicked.hand) {
+        if (c.color === 'wild') delete c.chosenColor;
+      }
+      room.deck.push(...kicked.hand);
+      shuffle(room.deck);
+
+      const wasCurrent = room.started && kickIdx === room.turn;
+      const oldTurn = room.turn;
+
+      room.players.splice(kickIdx, 1);
+      if (targetWs) playerSockets.delete(targetWs);
+      try {
+        if (targetWs) targetWs.send(JSON.stringify({ type: 'kicked' }));
+      } catch (_) {}
+
+      if (kicked.id === room.hostId && room.players.length > 0) {
+        room.hostId = room.players[0].id;
+      }
+
+      if (room.players.length === 0) {
+        delete rooms[roomCode];
+        return;
+      }
+
+      if (room.players.length === 1) {
+        const sole = room.players[0];
+        broadcast(roomCode, {
+          type: 'gameOver',
+          winner: sole.name,
+          final: true,
+          reason: 'lastPlayer'
+        });
+        delete rooms[roomCode];
+        return;
+      }
+
+      if (!room.started) {
+        broadcast(roomCode, { type: 'playerLeft', playerName: kicked.name, room, reason: 'kick' });
+        return;
+      }
+
+      if (!wasCurrent && kickIdx < oldTurn) {
+        room.turn--;
+      } else if (wasCurrent) {
+        room.turn = kickIdx % room.players.length;
+      }
+      room.turn = ((room.turn % room.players.length) + room.players.length) % room.players.length;
+
+      broadcast(roomCode, { type: 'playerLeft', playerName: kicked.name, room, reason: 'kick' });
+      startTurnTimer(room, roomCode);
+      broadcast(roomCode, { type: 'stateUpdate', room });
+      return;
     }
 
     // LEAVE ROOM / EXIT GAME (hands go back into deck)
@@ -331,6 +483,7 @@ wss.on('connection', (ws) => {
       if (leaveIdx === -1) return;
       const quitter = room.players[leaveIdx];
       clearRoundTimer(room);
+      clearTurnTimer(room);
 
       for (const c of quitter.hand) {
         if (c.color === 'wild') delete c.chosenColor;
@@ -382,6 +535,7 @@ wss.on('connection', (ws) => {
       room.turn = ((room.turn % room.players.length) + room.players.length) % room.players.length;
 
       broadcast(roomCode, {type: 'playerLeft', playerName: quitter.name, room});
+      startTurnTimer(room, roomCode);
       broadcast(roomCode, {type: 'stateUpdate', room});
       return;
     }

@@ -142,6 +142,36 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .player-tag.disconnected { opacity: 0.5; text-decoration: line-through; }
+    .player-tag-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 5px;
+      vertical-align: middle;
+    }
+    .kick-btn {
+      width: auto;
+      min-width: 0;
+      margin: 0;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-family: var(--font-display);
+      font-weight: 600;
+      border-radius: 8px;
+      background: rgba(233, 69, 96, 0.35);
+      color: #ffc9d2;
+      border: 1px solid rgba(233, 69, 96, 0.6);
+      cursor: pointer;
+    }
+    .kick-btn:hover { background: rgba(233, 69, 96, 0.55); color: #fff; }
+    .opponent-kick {
+      margin-top: 8px;
+    }
+    .opponent-kick .kick-btn {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
     
     /* Game Board */
     #game {
@@ -362,11 +392,37 @@
       transform: scale(1);
       opacity: 1;
     }
-    #colorPickerPanel h3 {
+    .color-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .color-picker-header h3 {
       font-family: var(--font-display);
       font-weight: 600;
-      margin-bottom: 16px;
+      margin: 0;
       font-size: 1.35rem;
+    }
+    #colorPickerCloseBtn {
+      flex-shrink: 0;
+      width: auto;
+      min-width: 0;
+      margin: 0;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-family: var(--font-display);
+      font-weight: 600;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+    }
+    #colorPickerCloseBtn:hover {
+      background: rgba(255, 255, 255, 0.18);
     }
     .color-btn {
       width: 64px;
@@ -467,6 +523,14 @@
     }
     
     /* Turn indicator */
+    #turnIndicatorWrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      min-width: 0;
+    }
     #turnIndicator {
       text-align: right;
       font-family: var(--font-display);
@@ -474,8 +538,20 @@
       font-weight: 500;
       color: var(--muted);
       line-height: 1.3;
-      flex: 1;
       transition: color 0.3s ease;
+    }
+    .turn-timer {
+      display: none;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      color: rgba(248, 250, 252, 0.55);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .turn-timer.urgent {
+      color: #ffb8c3;
+      font-weight: 700;
     }
     #turnIndicator.my-turn {
       color: var(--accent);
@@ -605,6 +681,7 @@
       #hand { justify-content: center; flex-wrap: wrap; overflow-x: visible; }
       #turnIndicator { font-size: 1.1rem; }
       #turnIndicator.my-turn { font-size: 1.25rem; }
+      .turn-timer { font-size: 0.85rem; }
     }
   </style>
 </head>
@@ -616,7 +693,7 @@
   
   <div id="nameInput">
     <div class="input-group">
-      <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="12">
+      <input type="text" id="playerName" placeholder="YOUR NAME" maxlength="24">
     </div>
     <button class="btn-primary" onclick="showMenu()">Continue</button>
   </div>
@@ -642,7 +719,10 @@
 <div id="game">
   <div id="topBar">
     <span id="roomCodeDisplay"></span>
-    <span id="turnIndicator"></span>
+    <div id="turnIndicatorWrap">
+      <span id="turnIndicator"></span>
+      <span id="turnTimerDisplay" class="turn-timer" aria-live="polite"></span>
+    </div>
     <button type="button" id="exitBtn" onclick="leaveGame()">Exit</button>
   </div>
   
@@ -671,9 +751,12 @@
 </div>
 
 <!-- ColorPicker for Wilds -->
-<div id="colorPickerOverlay">
+<div id="colorPickerOverlay" onclick="cancelColorPick()">
   <div id="colorPickerPanel" onclick="event.stopPropagation()">
-    <h3>Choose a color</h3>
+    <div class="color-picker-header">
+      <h3>Choose a color</h3>
+      <button type="button" id="colorPickerCloseBtn" onclick="cancelColorPick()">Close</button>
+    </div>
     <div>
       <button type="button" class="color-btn" style="background:#ff6b6b" onclick="pickColor('red')" aria-label="Red"></button>
       <button type="button" class="color-btn" style="background:#48dbfb" onclick="pickColor('blue')" aria-label="Blue"></button>
@@ -863,6 +946,46 @@ let selectedCardIndex = null;
 let prevMyTurn = null;
 let prevTurnPlayerId = null;
 let messageTimer = null;
+let turnCountdownInterval = null;
+
+function stopTurnCountdown() {
+  if (turnCountdownInterval) {
+    clearInterval(turnCountdownInterval);
+    turnCountdownInterval = null;
+  }
+  const el = document.getElementById('turnTimerDisplay');
+  if (el) {
+    el.textContent = '';
+    el.className = 'turn-timer';
+    el.style.display = 'none';
+  }
+}
+
+function syncTurnCountdownFromRoom() {
+  stopTurnCountdown();
+  const el = document.getElementById('turnTimerDisplay');
+  if (!el || !currentRoom || !currentRoom.started || !currentRoom.turnEndsAt) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  const tick = () => {
+    if (!currentRoom || !currentRoom.turnEndsAt) {
+      stopTurnCountdown();
+      return;
+    }
+    const ms = currentRoom.turnEndsAt - Date.now();
+    const sec = Math.max(0, Math.ceil(ms / 1000));
+    const cur = currentRoom.players[currentRoom.turn];
+    const label = cur ? cur.name : '';
+    el.textContent = sec > 0
+      ? `${label} — auto-draw in ${sec}s`
+      : `${label} — auto-draw…`;
+    el.className = sec <= 5 ? 'turn-timer urgent' : 'turn-timer';
+  };
+  tick();
+  turnCountdownInterval = setInterval(tick, 250);
+}
 
 const COLOR_HEX = {
   red: '#ff6b6b',
@@ -885,6 +1008,11 @@ function openColorPicker() {
 
 function closeColorPicker() {
   document.getElementById('colorPickerOverlay').classList.remove('open');
+}
+
+function cancelColorPick() {
+  closeColorPicker();
+  selectedCardIndex = null;
 }
 
 // Check for reconnection
@@ -967,7 +1095,10 @@ function handleMessage(msg) {
         }
       }
       const pname = msg.playerName || (msg.player && msg.player.name) || 'Someone';
-      const evt = msg.type === 'playerJoined' ? 'joined' : msg.type === 'playerLeft' ? 'left' : msg.type === 'playerDisconnected' ? 'disconnected' : 'reconnected';
+      let evt = 'reconnected';
+      if (msg.type === 'playerJoined') evt = 'joined';
+      else if (msg.type === 'playerLeft') evt = msg.reason === 'kick' ? 'was kicked' : 'left';
+      else if (msg.type === 'playerDisconnected') evt = 'disconnected';
       showMessage(`${pname} ${evt}!`);
       break;
       
@@ -983,6 +1114,7 @@ function handleMessage(msg) {
       break;
 
     case 'roundOver':
+      stopTurnCountdown();
       showMessage(`${msg.winner} wins this round — next round in a moment!`);
       break;
 
@@ -1000,8 +1132,14 @@ function handleMessage(msg) {
       returnToMainMenu();
       showMessage('You left the room.');
       break;
+
+    case 'kicked':
+      returnToMainMenu();
+      showMessage('You were removed from the room.');
+      break;
       
     case 'gameOver':
+      stopTurnCountdown();
       if (msg.reason === 'lastPlayer') {
         showMessage(`${msg.winner} wins — last player standing!`);
       } else {
@@ -1032,6 +1170,7 @@ function clearSession() {
 }
 
 function returnToMainMenu() {
+  stopTurnCountdown();
   const nameKeep = (typeof myName === 'string' && myName) ? myName : (localStorage.getItem('unoPlayerName') || '');
   clearSession();
   if (nameKeep) {
@@ -1095,12 +1234,28 @@ function showRoom() {
 
 function updatePlayerList() {
   const list = document.getElementById('playersList');
-  list.innerHTML = currentRoom.players.map(p => 
-    `<span class="player-tag ${p.connected ? '' : 'disconnected'}">${p.name} ${p.id === currentRoom.hostId ? '👑' : ''}</span>`
-  ).join('');
   const isHost = currentRoom.hostId === myId;
+  list.innerHTML = currentRoom.players.map(p => {
+    const tag = `<span class="player-tag ${p.connected ? '' : 'disconnected'}">${p.name} ${p.id === currentRoom.hostId ? '👑' : ''}</span>`;
+    const kick = isHost && p.id !== myId
+      ? `<button type="button" class="kick-btn" onclick="kickPlayer('${p.id}')">Kick</button>`
+      : '';
+    return `<div class="player-tag-row">${tag}${kick}</div>`;
+  }).join('');
   document.getElementById('startBtn').style.display = isHost && currentRoom.players.length >= 2 ? 'block' : 'none';
   document.getElementById('waitingText').style.display = isHost ? 'none' : 'block';
+}
+
+function kickPlayer(targetPlayerId) {
+  if (!myRoomCode || !myId || !currentRoom || currentRoom.hostId !== myId) return;
+  if (!targetPlayerId || targetPlayerId === myId) return;
+  if (!confirm('Remove this player from the room? Their cards return to the deck.')) return;
+  ws.send(JSON.stringify({
+    type: 'kick',
+    roomCode: myRoomCode,
+    playerId: myId,
+    targetPlayerId
+  }));
 }
 
 function startGame() {
@@ -1115,9 +1270,15 @@ function showGame() {
 }
 
 function updateGameView() {
-  if (!currentRoom || !currentRoom.players || !currentRoom.discard || !currentRoom.discard.length) return;
+  if (!currentRoom || !currentRoom.players || !currentRoom.discard || !currentRoom.discard.length) {
+    stopTurnCountdown();
+    return;
+  }
   const me = currentRoom.players.find(p => p.id === myId);
-  if (!me) return;
+  if (!me) {
+    stopTurnCountdown();
+    return;
+  }
   const isMyTurn = currentRoom.players[currentRoom.turn].id === myId;
   const currentPlayer = currentRoom.players[currentRoom.turn];
   const currentTurnId = currentPlayer.id;
@@ -1134,6 +1295,7 @@ function updateGameView() {
 
   const opponentsEl = document.getElementById('opponents');
   const myIndex = currentRoom.players.findIndex(p => p.id === myId);
+  const hostHere = currentRoom.hostId === myId;
   const opponents = [];
   for (let i = 1; i < currentRoom.players.length; i++) {
     const idx = (myIndex + i) % currentRoom.players.length;
@@ -1143,6 +1305,7 @@ function updateGameView() {
     <div class="opponent ${p.id === currentPlayer.id ? 'active' : ''}">
       <div>${p.name}</div>
       <div class="opponent-cards">🂠${p.hand.length}</div>
+      ${hostHere && p.id !== myId ? `<div class="opponent-kick"><button type="button" class="kick-btn" onclick="kickPlayer('${p.id}')">Kick</button></div>` : ''}
     </div>
   `).join('');
   if (turnChanged) {
@@ -1198,6 +1361,8 @@ function updateGameView() {
   }).join('');
 
   document.getElementById('drawBtn').style.display = isMyTurn ? 'block' : 'none';
+
+  syncTurnCountdownFromRoom();
 }
 
 function effectiveTopColor(topCard) {
@@ -1208,17 +1373,11 @@ function effectiveTopColor(topCard) {
 }
 
 function canPlayCard(card, topCard, stack) {
-  if (card.color === 'wild') {
-    if (stack > 0) {
-      // Can only stack +4 on +4, or any wild if no stack
-      return topCard.type === '+4' ? card.type === '+4' : true;
-    }
-    return true;
-  }
   if (stack > 0) {
-    // Must stack +2 on +2
-    return card.type === '+2' && topCard.type === '+2';
+    return (card.type === '+2' && topCard.type === '+2') ||
+           (card.type === '+4' && topCard.type === '+4');
   }
+  if (card.color === 'wild') return true;
   const topColor = effectiveTopColor(topCard);
   return card.color === topColor ||
          (card.type === topCard.type && card.type !== 'number') ||
@@ -1243,6 +1402,7 @@ function playCard(index) {
 }
 
 function pickColor(color) {
+  if (selectedCardIndex === null || selectedCardIndex === undefined) return;
   closeColorPicker();
   ws.send(JSON.stringify({
     type: 'play',
