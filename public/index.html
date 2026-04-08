@@ -376,6 +376,11 @@
       opacity: 1;
       pointer-events: auto;
     }
+    #targetPickerOverlay.open {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
     #colorPickerPanel {
       background: rgba(22, 33, 62, 0.95);
       border: 1px solid rgba(255,255,255,0.12);
@@ -643,6 +648,10 @@
       transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s;
       font-family: var(--font-display);
     }
+    .opponent.spectator-opp {
+      opacity: 0.72;
+      border-style: dashed;
+    }
     .opponent.active {
       border: 2px solid var(--accent);
       box-shadow:
@@ -699,6 +708,13 @@
   </div>
   
   <div id="menu" style="display:none;">
+    <div class="input-group" style="text-align:left;max-width:320px;">
+      <label for="gameModeSelect" style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:6px;text-transform:none;">Game mode</label>
+      <select id="gameModeSelect" style="width:100%;padding:14px;font-size:1rem;border-radius:12px;border:2px solid rgba(255,255,255,0.08);background:rgba(15,52,96,0.55);color:var(--text);font-family:inherit;">
+        <option value="classic">Classic UNO</option>
+        <option value="noMercy">UNO No Mercy</option>
+      </select>
+    </div>
     <button class="btn-primary" onclick="createRoom()">Create Room</button>
     <div class="input-group">
       <input type="text" id="roomCode" placeholder="ENTER CODE" maxlength="5">
@@ -708,6 +724,7 @@
   
   <div id="roomInfo">
     <h2>Room: <span id="displayCode"></span></h2>
+    <p id="roomModeLabel" style="margin:8px 0;font-size:0.95rem;color:var(--muted);"></p>
     <div id="playersList"></div>
     <button id="startBtn" class="btn-danger" onclick="startGame()" style="display:none;">START GAME</button>
     <button type="button" id="leaveRoomLobbyBtn" class="btn-warning" onclick="leaveGame()" style="margin-top:12px">Leave room</button>
@@ -751,6 +768,15 @@
 </div>
 
 <!-- ColorPicker for Wilds -->
+<div id="targetPickerOverlay" onclick="cancelTargetPick()" style="position:fixed;inset:0;z-index:160;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,8,18,0.72);backdrop-filter:blur(8px);visibility:hidden;opacity:0;pointer-events:none;transition:opacity 0.28s,visibility 0.28s;">
+  <div id="targetPickerPanel" onclick="event.stopPropagation()" style="background:rgba(22,33,62,0.95);border:1px solid rgba(255,255,255,0.12);padding:24px;border-radius:24px;max-width:340px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+    <h3 style="font-family:var(--font-display);margin-bottom:12px;">Swap hands with…</h3>
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:16px;">Pick an active player (7 card).</p>
+    <div id="targetPickerList"></div>
+    <button type="button" class="btn-warning" style="margin-top:12px;" onclick="cancelTargetPick()">Cancel</button>
+  </div>
+</div>
+
 <div id="colorPickerOverlay" onclick="cancelColorPick()">
   <div id="colorPickerPanel" onclick="event.stopPropagation()">
     <div class="color-picker-header">
@@ -850,8 +876,13 @@ function getCardSVG(card, isSmall=false) {
     parts.push(`<path d="M${ix + iw} ${iy} L${ix + iw} ${imy} L${imx} ${iy} Z" fill="${face.blue}"/>`);
     parts.push(`<path d="M${ix} ${iy + ih} L${ix} ${imy} L${imx} ${iy + ih} Z" fill="${face.yellow}"/>`);
     parts.push(`<path d="M${ix + iw} ${iy + ih} L${imx} ${iy + ih} L${ix + iw} ${imy} Z" fill="${face.green}"/>`);
-    const mid = card.type === '+4' ? '+4' : 'W';
-    const midFs = card.type === '+4' ? (isSmall ? 15 : 22) : (isSmall ? 18 : 26);
+    let mid = 'W';
+    let midFs = isSmall ? 18 : 26;
+    if (card.type === '+4') { mid = '+4'; midFs = isSmall ? 15 : 22; }
+    else if (card.type === '+6') { mid = '+6'; midFs = isSmall ? 15 : 22; }
+    else if (card.type === '+10') { mid = '+10'; midFs = isSmall ? 12 : 18; }
+    else if (card.type === 'colorRoulette') { mid = '?'; midFs = isSmall ? 20 : 28; }
+    else if (card.type === 'wildReverseDraw4') { mid = '⇄+4'; midFs = isSmall ? 11 : 15; }
     parts.push(centerOval('#fff', '#2b2d42'));
     parts.push(`<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="#2b2d42"
       font-size="${midFs}" font-weight="800" font-family="${fontCard}">${mid}</text>`);
@@ -892,6 +923,22 @@ function getCardSVG(card, isSmall=false) {
       centerInner = centerOval('#fff', e) +
         `<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="${e}"
           font-size="${actionFs}" font-weight="800" font-family="${fontCard}">+2</text>`;
+    } else if (card.type === '+4') {
+      cornerGlyph = '+4';
+      centerInner = centerOval('#fff', e) +
+        `<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="${e}"
+          font-size="${actionFs}" font-weight="800" font-family="${fontCard}">+4</text>`;
+    } else if (card.type === 'discardAll') {
+      cornerGlyph = 'ALL';
+      const dfs = isSmall ? 12 : 16;
+      centerInner = centerOval('#fff', e) +
+        `<text x="${cx}" y="${cy + (isSmall ? 5 : 7)}" text-anchor="middle" fill="${e}"
+          font-size="${dfs}" font-weight="800" font-family="${fontCard}">ALL</text>`;
+    } else if (card.type === 'skipEveryone') {
+      cornerGlyph = '⏭';
+      centerInner = centerOval('#fff', e) +
+        `<text x="${cx}" y="${cy + (isSmall ? 4 : 6)}" text-anchor="middle" fill="${e}"
+          font-size="${isSmall ? 14 : 20}" font-weight="800" font-family="${fontCard}">ALL</text>`;
     }
 
     parts.push(centerInner);
@@ -901,6 +948,28 @@ function getCardSVG(card, isSmall=false) {
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
     ${parts.join('\n')}
   </svg>`;
+}
+
+function activePlayersRoom(room) {
+  if (!room || !room.players) return [];
+  return room.players.filter((p) => !p.spectator);
+}
+
+function currentTurnPlayerRoom(room) {
+  const a = activePlayersRoom(room);
+  if (!a.length) return null;
+  const i = ((room.turn % a.length) + a.length) % a.length;
+  return a[i];
+}
+
+function drawPenaltyValueClient(card) {
+  if (!card) return 0;
+  if (card.type === '+2') return 2;
+  if (card.type === '+4') return 4;
+  if (card.type === '+6') return 6;
+  if (card.type === '+10') return 10;
+  if (card.type === 'wildReverseDraw4') return 4;
+  return 0;
 }
 
 function getCardBackSVG(isSmall=false) {
@@ -948,6 +1017,52 @@ let prevTurnPlayerId = null;
 let messageTimer = null;
 let turnCountdownInterval = null;
 
+function closeTargetPicker() {
+  const ov = document.getElementById('targetPickerOverlay');
+  if (ov) ov.classList.remove('open');
+}
+
+function maybeOpenTargetPicker() {
+  if (!currentRoom || !currentRoom.pendingAction || currentRoom.pendingAction.kind !== 'swap7') {
+    closeTargetPicker();
+    return;
+  }
+  if (currentRoom.pendingAction.forPlayerId !== myId) {
+    closeTargetPicker();
+    return;
+  }
+  const ov = document.getElementById('targetPickerOverlay');
+  const list = document.getElementById('targetPickerList');
+  if (!ov || !list) return;
+  const act = activePlayersRoom(currentRoom).filter((x) => x.id !== myId);
+  list.innerHTML = '';
+  act.forEach((x) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn-primary';
+    b.style.margin = '6px 0';
+    b.textContent = x.name;
+    b.addEventListener('click', () => sendSwapTarget(x.id));
+    list.appendChild(b);
+  });
+  ov.classList.add('open');
+}
+
+function cancelTargetPick() {
+  closeTargetPicker();
+}
+
+function sendSwapTarget(targetPlayerId) {
+  if (!myRoomCode || !myId || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({
+    type: 'chooseSwapTarget',
+    roomCode: myRoomCode,
+    playerId: myId,
+    targetPlayerId,
+  }));
+  closeTargetPicker();
+}
+
 function stopTurnCountdown() {
   if (turnCountdownInterval) {
     clearInterval(turnCountdownInterval);
@@ -976,7 +1091,7 @@ function syncTurnCountdownFromRoom() {
     }
     const ms = currentRoom.turnEndsAt - Date.now();
     const sec = Math.max(0, Math.ceil(ms / 1000));
-    const cur = currentRoom.players[currentRoom.turn];
+    const cur = currentTurnPlayerRoom(currentRoom);
     const label = cur ? cur.name : '';
     el.textContent = sec > 0
       ? `${label} — auto-draw in ${sec}s`
@@ -1113,6 +1228,12 @@ function handleMessage(msg) {
       updateGameView();
       break;
 
+    case 'playerEliminated':
+      if (msg.room) currentRoom = msg.room;
+      if (msg.playerName) showMessage(`${msg.playerName} is out (No Mercy — 25+ cards)!`);
+      updateGameView();
+      break;
+
     case 'roundOver':
       stopTurnCountdown();
       showMessage(`${msg.winner} wins this round — next round in a moment!`);
@@ -1140,6 +1261,20 @@ function handleMessage(msg) {
       
     case 'gameOver':
       stopTurnCountdown();
+      if (msg.backToLobby && msg.room) {
+        currentRoom = msg.room;
+        myRoomCode = msg.room.code;
+        saveSession();
+        if (msg.reason === 'lastPlayer') {
+          showMessage(`${msg.winner} wins — last player standing! Host can start a rematch.`);
+        } else if (msg.reason === 'sessionEnd') {
+          showMessage(`${msg.winner} wins! Back in the room — host can start a new No Mercy game.`);
+        } else {
+          showMessage(`${msg.winner} wins! Host can start a rematch.`);
+        }
+        showRoomAfterNoMercyGame();
+        break;
+      }
       if (msg.reason === 'lastPlayer') {
         showMessage(`${msg.winner} wins — last player standing!`);
       } else {
@@ -1186,6 +1321,7 @@ function returnToMainMenu() {
   prevTurnPlayerId = null;
   selectedCardIndex = null;
   closeColorPicker();
+  closeTargetPicker();
   document.getElementById('game').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
   document.getElementById('roomInfo').style.display = 'none';
@@ -1210,7 +1346,9 @@ function showMenu() {
 }
 
 function createRoom() {
-  ws.send(JSON.stringify({type: 'create', playerName: myName}));
+  const sel = document.getElementById('gameModeSelect');
+  const gameMode = sel && sel.value === 'noMercy' ? 'noMercy' : 'classic';
+  ws.send(JSON.stringify({ type: 'create', playerName: myName, gameMode }));
 }
 
 function joinRoom() {
@@ -1220,11 +1358,37 @@ function joinRoom() {
   ws.send(JSON.stringify({type: 'join', roomCode: code, playerName: myName}));
 }
 
+function showRoomAfterNoMercyGame() {
+  closeColorPicker();
+  closeTargetPicker();
+  selectedCardIndex = null;
+  prevMyTurn = null;
+  prevTurnPlayerId = null;
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  document.getElementById('lobby').querySelector('#nameInput').style.display = 'none';
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('roomInfo').style.display = 'block';
+  document.getElementById('displayCode').textContent = myRoomCode;
+  const modeEl = document.getElementById('roomModeLabel');
+  if (modeEl && currentRoom) {
+    modeEl.textContent = currentRoom.gameMode === 'noMercy' ? 'Mode: UNO No Mercy' : 'Mode: Classic UNO';
+  }
+  updatePlayerList();
+  const isHost = currentRoom && currentRoom.hostId === myId;
+  document.getElementById('startBtn').style.display = isHost && currentRoom && currentRoom.players.length >= 2 ? 'block' : 'none';
+  document.getElementById('waitingText').style.display = isHost ? 'none' : 'block';
+}
+
 function showRoom() {
   document.getElementById('lobby').querySelector('#nameInput').style.display = 'none';
   document.getElementById('menu').style.display = 'none';
   document.getElementById('roomInfo').style.display = 'block';
   document.getElementById('displayCode').textContent = myRoomCode;
+  const modeEl = document.getElementById('roomModeLabel');
+  if (modeEl && currentRoom) {
+    modeEl.textContent = currentRoom.gameMode === 'noMercy' ? 'Mode: UNO No Mercy' : 'Mode: Classic UNO';
+  }
   updatePlayerList();
   
   const isHost = currentRoom.hostId === myId;
@@ -1234,6 +1398,10 @@ function showRoom() {
 
 function updatePlayerList() {
   const list = document.getElementById('playersList');
+  const modeEl = document.getElementById('roomModeLabel');
+  if (modeEl && currentRoom) {
+    modeEl.textContent = currentRoom.gameMode === 'noMercy' ? 'Mode: UNO No Mercy' : 'Mode: Classic UNO';
+  }
   const isHost = currentRoom.hostId === myId;
   list.innerHTML = currentRoom.players.map(p => {
     const tag = `<span class="player-tag ${p.connected ? '' : 'disconnected'}">${p.name} ${p.id === currentRoom.hostId ? '👑' : ''}</span>`;
@@ -1265,8 +1433,10 @@ function startGame() {
 function showGame() {
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('game').style.display = 'block';
+  const modeShort = currentRoom && currentRoom.gameMode === 'noMercy' ? 'No Mercy' : 'Classic';
   document.getElementById('roomCodeDisplay').innerHTML =
-    `<span class="room-badge"><span>Room</span><span class="room-badge-code">${myRoomCode}</span></span>`;
+    `<span class="room-badge"><span>Room</span><span class="room-badge-code">${myRoomCode}</span></span>` +
+    `<span class="room-badge" style="margin-left:8px;"><span>Mode</span><span class="room-badge-code" style="letter-spacing:0.06em;">${modeShort}</span></span>`;
 }
 
 function updateGameView() {
@@ -1279,8 +1449,12 @@ function updateGameView() {
     stopTurnCountdown();
     return;
   }
-  const isMyTurn = currentRoom.players[currentRoom.turn].id === myId;
-  const currentPlayer = currentRoom.players[currentRoom.turn];
+  const currentPlayer = currentTurnPlayerRoom(currentRoom);
+  if (!currentPlayer) {
+    stopTurnCountdown();
+    return;
+  }
+  const isMyTurn = currentPlayer.id === myId && !me.spectator;
   const currentTurnId = currentPlayer.id;
   const turnChanged = prevTurnPlayerId !== null && prevTurnPlayerId !== currentTurnId;
 
@@ -1302,8 +1476,8 @@ function updateGameView() {
     opponents.push(currentRoom.players[idx]);
   }
   opponentsEl.innerHTML = opponents.map((p, i) => `
-    <div class="opponent ${p.id === currentPlayer.id ? 'active' : ''}">
-      <div>${p.name}</div>
+    <div class="opponent ${p.id === currentPlayer.id ? 'active' : ''} ${p.spectator ? 'spectator-opp' : ''}">
+      <div>${p.name}${p.spectator ? ' · out' : ''}</div>
       <div class="opponent-cards">🂠${p.hand.length}</div>
       ${hostHere && p.id !== myId ? `<div class="opponent-kick"><button type="button" class="kick-btn" onclick="kickPlayer('${p.id}')">Kick</button></div>` : ''}
     </div>
@@ -1350,18 +1524,23 @@ function updateGameView() {
     stackEl.style.display = 'none';
   }
 
-  handEl.innerHTML = me.hand.map((card, i) => {
-    const canPlay = isMyTurn && canPlayCard(card, topCardObj, currentRoom.drawStack);
-    const delay = Math.min(i * 0.045, 0.55);
-    return `<div class="hand-card card hand-card-enter ${canPlay ? 'playable' : ''}" 
-                 style="animation-delay: ${delay}s"
-                 onclick="${canPlay ? `playCard(${i})` : ''}">
-      ${getCardSVG(card, true)}
-    </div>`;
-  }).join('');
+  if (me.spectator) {
+    handEl.innerHTML = `<div style="margin:auto;padding:24px;color:var(--muted);font-family:var(--font-display);">Spectating — you're out (25+ cards).</div>`;
+  } else {
+    handEl.innerHTML = me.hand.map((card, i) => {
+      const canPlay = isMyTurn && canPlayCard(card, topCardObj, currentRoom);
+      const delay = Math.min(i * 0.045, 0.55);
+      return `<div class="hand-card card hand-card-enter ${canPlay ? 'playable' : ''}" 
+                   style="animation-delay: ${delay}s"
+                   onclick="${canPlay ? `playCard(${i})` : ''}">
+        ${getCardSVG(card, true)}
+      </div>`;
+    }).join('');
+  }
 
-  document.getElementById('drawBtn').style.display = isMyTurn ? 'block' : 'none';
+  document.getElementById('drawBtn').style.display = isMyTurn && !me.spectator ? 'block' : 'none';
 
+  maybeOpenTargetPicker();
   syncTurnCountdownFromRoom();
 }
 
@@ -1372,8 +1551,22 @@ function effectiveTopColor(topCard) {
   return topCard.color;
 }
 
-function canPlayCard(card, topCard, stack) {
-  if (stack > 0) {
+function canPlayCard(card, topCard, room) {
+  if (room.gameMode === 'noMercy') {
+    if (room.drawStack > 0) {
+      const v = drawPenaltyValueClient(card);
+      const face = room.drawStackFace || 0;
+      return v > 0 && v >= face;
+    }
+    if (card.color === 'wild') return true;
+    const topColor = effectiveTopColor(topCard);
+    return (
+      card.color === topColor ||
+      (card.type === topCard.type && card.type !== 'number') ||
+      (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value)
+    );
+  }
+  if (room.drawStack > 0) {
     return (card.type === '+2' && topCard.type === '+2') ||
            (card.type === '+4' && topCard.type === '+4');
   }
@@ -1386,13 +1579,14 @@ function canPlayCard(card, topCard, stack) {
 
 function playCard(index) {
   const card = currentRoom.players.find(p => p.id === myId).hand[index];
-  
+  if (!card) return;
+
   if (card.color === 'wild') {
     selectedCardIndex = index;
     openColorPicker();
     return;
   }
-  
+
   ws.send(JSON.stringify({
     type: 'play',
     roomCode: myRoomCode,
