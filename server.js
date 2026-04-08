@@ -95,6 +95,13 @@ function effectiveTopColor(topCard) {
   return topCard.color;
 }
 
+/** Stable color key for hand / discard matching (lowercase; wild uses chosenColor). */
+function cardColorKey(c) {
+  if (!c) return '';
+  if (c.color === 'wild' && c.chosenColor) return String(c.chosenColor).toLowerCase();
+  return String(c.color || '').toLowerCase();
+}
+
 function takeStarterDiscard(deck) {
   const idx = deck.findIndex(c => c.type === 'number');
   if (idx === -1) return deck.pop();
@@ -360,7 +367,7 @@ function afterPlayEffectsClassic(room, card, player, roomCode) {
   return { done: false };
 }
 
-function afterPlayEffectsNoMercy(room, card, player, roomCode) {
+function afterPlayEffectsNoMercy(room, card, player, roomCode, discardTopBeforePlay) {
   let skipSteps = 1;
 
   if (card.type === 'colorRoulette') {
@@ -398,10 +405,15 @@ function afterPlayEffectsNoMercy(room, card, player, roomCode) {
     room.drawStack += v;
     room.drawStackFace = v;
   } else if (card.type === 'discardAll') {
-    const col = card.color;
-    const toDiscard = player.hand.filter((c) => c.color === col);
+    const colorsToDump = new Set([cardColorKey(card)]);
+    // Chaining Discard All on Discard All can be legal via same card type even when printed colors differ.
+    // Clear cards matching BOTH the played card's color and the previous discard's effective color.
+    if (discardTopBeforePlay && discardTopBeforePlay.type === 'discardAll') {
+      colorsToDump.add(String(effectiveTopColor(discardTopBeforePlay)).toLowerCase());
+    }
+    const toDiscard = player.hand.filter((c) => colorsToDump.has(cardColorKey(c)));
     stripWildColors(toDiscard);
-    player.hand = player.hand.filter((c) => c.color !== col);
+    player.hand = player.hand.filter((c) => !colorsToDump.has(cardColorKey(c)));
     room.discard.push(...toDiscard);
   } else if (card.type === 'number' && card.value === '0') {
     rotateHandsNoMercy(room);
@@ -524,6 +536,11 @@ function resolveSwap7(room, roomCode, actorId, requestedTargetId = null) {
   actor.hand = target.hand;
   target.hand = tmp;
   room.pendingAction = null;
+  broadcast(roomCode, {
+    type: 'handsSwapped',
+    actorName: actor.name,
+    targetName: target.name,
+  });
   if (applyMercyRule(room, roomCode)) return true;
   advanceTurnBy(room, 1);
   clearTurnTimer(room);
@@ -757,7 +774,7 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const out = afterPlayEffectsNoMercy(room, card, player, roomCode);
+      const out = afterPlayEffectsNoMercy(room, card, player, roomCode, topCard);
       if (out.done) return;
       startTurnTimer(room, roomCode);
       broadcast(roomCode, { type: 'stateUpdate', room });

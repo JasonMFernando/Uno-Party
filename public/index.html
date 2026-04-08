@@ -376,10 +376,112 @@
       opacity: 1;
       pointer-events: auto;
     }
+    #targetPickerOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 220;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(10, 8, 18, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease, visibility 0.28s;
+    }
     #targetPickerOverlay.open {
       visibility: visible;
       opacity: 1;
       pointer-events: auto;
+    }
+    #targetPickerPanel {
+      background: rgba(22, 33, 62, 0.97);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 26px 22px;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+      transform: scale(0.92);
+      opacity: 0;
+      transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.28s ease;
+    }
+    #targetPickerOverlay.open #targetPickerPanel {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .swap-modal-header {
+      text-align: left;
+      margin-bottom: 8px;
+    }
+    .swap-modal-header h3 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.35rem;
+      margin: 0 0 6px 0;
+    }
+    .swap-modal-subtitle {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin: 0 0 16px 0;
+      line-height: 1.35;
+    }
+    #targetPickerList {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: min(52vh, 360px);
+      overflow-y: auto;
+    }
+    .swap-target-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 16px;
+      margin: 0;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1rem;
+      text-align: left;
+      background: linear-gradient(180deg, #1ee8ea 0%, #00b8ba 100%);
+      color: #0a1628;
+      box-shadow: 0 4px 16px rgba(0, 210, 211, 0.35);
+      transition: transform 0.12s, box-shadow 0.2s;
+    }
+    .swap-target-btn:hover {
+      box-shadow: 0 6px 22px rgba(0, 210, 211, 0.45);
+      transform: translateY(-1px);
+    }
+    .swap-target-btn:active {
+      transform: scale(0.98);
+    }
+    .swap-target-name {
+      flex: 1;
+      min-width: 0;
+    }
+    .swap-target-count {
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(10, 22, 40, 0.35);
+      font-size: 0.85rem;
+    }
+    .swap-modal-footer {
+      margin-top: 16px;
+    }
+    .swap-modal-footer .swap-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 10px;
     }
     #colorPickerPanel {
       background: rgba(22, 33, 62, 0.95);
@@ -768,12 +870,17 @@
 </div>
 
 <!-- ColorPicker for Wilds -->
-<div id="targetPickerOverlay" onclick="cancelTargetPick()" style="position:fixed;inset:0;z-index:160;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,8,18,0.72);backdrop-filter:blur(8px);visibility:hidden;opacity:0;pointer-events:none;transition:opacity 0.28s,visibility 0.28s;">
-  <div id="targetPickerPanel" onclick="event.stopPropagation()" style="background:rgba(22,33,62,0.95);border:1px solid rgba(255,255,255,0.12);padding:24px;border-radius:24px;max-width:340px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
-    <h3 style="font-family:var(--font-display);margin-bottom:12px;">Swap hands with…</h3>
-    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:16px;">Pick an active player (7 card).</p>
+<div id="targetPickerOverlay" aria-modal="true" role="dialog" aria-labelledby="swapModalTitle">
+  <div id="targetPickerPanel" onclick="event.stopPropagation()">
+    <div class="swap-modal-header">
+      <h3 id="swapModalTitle">Swap hands</h3>
+      <p class="swap-modal-subtitle">You played a <strong>7</strong>. Choose a player — you’ll take their hand and they’ll take yours. Your turn continues after you pick.</p>
+    </div>
     <div id="targetPickerList"></div>
-    <button type="button" class="btn-warning" style="margin-top:12px;" onclick="cancelTargetPick()">Cancel</button>
+    <div class="swap-modal-footer">
+      <p class="swap-hint">Draw is paused until you choose. If you wait, a player may be picked automatically.</p>
+      <button type="button" class="btn-warning" style="width:100%;margin:0;" onclick="cancelTargetPick()">Hide panel</button>
+    </div>
   </div>
 </div>
 
@@ -1016,18 +1123,27 @@ let prevMyTurn = null;
 let prevTurnPlayerId = null;
 let messageTimer = null;
 let turnCountdownInterval = null;
+let swapPickerHintShown = false;
 
 function closeTargetPicker() {
   const ov = document.getElementById('targetPickerOverlay');
   if (ov) ov.classList.remove('open');
 }
 
+function isSwap7PickForMe(room) {
+  if (!room || !myId || !room.pendingAction) return false;
+  const pa = room.pendingAction;
+  return pa.kind === 'swap7' && pa.forPlayerId === myId;
+}
+
 function maybeOpenTargetPicker() {
   if (!currentRoom || !currentRoom.pendingAction || currentRoom.pendingAction.kind !== 'swap7') {
+    swapPickerHintShown = false;
     closeTargetPicker();
     return;
   }
   if (currentRoom.pendingAction.forPlayerId !== myId) {
+    swapPickerHintShown = false;
     closeTargetPicker();
     return;
   }
@@ -1037,15 +1153,26 @@ function maybeOpenTargetPicker() {
   const act = activePlayersRoom(currentRoom).filter((x) => x.id !== myId);
   list.innerHTML = '';
   act.forEach((x) => {
+    const count = Array.isArray(x.hand) ? x.hand.length : 0;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'btn-primary';
-    b.style.margin = '6px 0';
-    b.textContent = x.name;
+    b.className = 'swap-target-btn';
+    const label = document.createElement('span');
+    label.className = 'swap-target-name';
+    label.textContent = x.name || x.id;
+    const badge = document.createElement('span');
+    badge.className = 'swap-target-count';
+    badge.textContent = `${count} card${count === 1 ? '' : 's'}`;
+    b.appendChild(label);
+    b.appendChild(badge);
     b.addEventListener('click', () => sendSwapTarget(x.id));
     list.appendChild(b);
   });
   ov.classList.add('open');
+  if (!swapPickerHintShown) {
+    showMessage('Choose who to swap hands with. Draw is disabled until you pick.');
+    swapPickerHintShown = true;
+  }
 }
 
 function cancelTargetPick() {
@@ -1091,6 +1218,13 @@ function syncTurnCountdownFromRoom() {
     }
     const ms = currentRoom.turnEndsAt - Date.now();
     const sec = Math.max(0, Math.ceil(ms / 1000));
+    if (isSwap7PickForMe(currentRoom)) {
+      el.textContent = sec > 0
+        ? `Swap — auto-pick in ${sec}s`
+        : `Swap — auto-pick…`;
+      el.className = sec <= 5 ? 'turn-timer urgent' : 'turn-timer';
+      return;
+    }
     const cur = currentTurnPlayerRoom(currentRoom);
     const label = cur ? cur.name : '';
     el.textContent = sec > 0
@@ -1232,6 +1366,12 @@ function handleMessage(msg) {
       if (msg.room) currentRoom = msg.room;
       if (msg.playerName) showMessage(`${msg.playerName} is out (No Mercy — 25+ cards)!`);
       updateGameView();
+      break;
+
+    case 'handsSwapped':
+      if (msg.actorName && msg.targetName) {
+        showMessage(`${msg.actorName} swapped hands with ${msg.targetName}. Next player's turn!`);
+      }
       break;
 
     case 'roundOver':
@@ -1455,11 +1595,17 @@ function updateGameView() {
     return;
   }
   const isMyTurn = currentPlayer.id === myId && !me.spectator;
+  const needSwapPick = isSwap7PickForMe(currentRoom);
   const currentTurnId = currentPlayer.id;
   const turnChanged = prevTurnPlayerId !== null && prevTurnPlayerId !== currentTurnId;
 
   const turnEl = document.getElementById('turnIndicator');
-  turnEl.textContent = isMyTurn ? 'YOUR TURN!' : `${currentPlayer.name}'s turn`;
+  if (needSwapPick) {
+    turnEl.textContent = 'Pick a player to swap hands with (7)';
+    turnEl.className = 'my-turn';
+  } else {
+    turnEl.textContent = isMyTurn ? 'YOUR TURN!' : `${currentPlayer.name}'s turn`;
+  }
   turnEl.className = isMyTurn ? 'my-turn' : '';
   if (prevMyTurn !== null && prevMyTurn !== isMyTurn) {
     turnEl.classList.add('turn-flash');
@@ -1528,7 +1674,7 @@ function updateGameView() {
     handEl.innerHTML = `<div style="margin:auto;padding:24px;color:var(--muted);font-family:var(--font-display);">Spectating — you're out (25+ cards).</div>`;
   } else {
     handEl.innerHTML = me.hand.map((card, i) => {
-      const canPlay = isMyTurn && canPlayCard(card, topCardObj, currentRoom);
+      const canPlay = isMyTurn && !needSwapPick && canPlayCard(card, topCardObj, currentRoom);
       const delay = Math.min(i * 0.045, 0.55);
       return `<div class="hand-card card hand-card-enter ${canPlay ? 'playable' : ''}" 
                    style="animation-delay: ${delay}s"
@@ -1538,7 +1684,8 @@ function updateGameView() {
     }).join('');
   }
 
-  document.getElementById('drawBtn').style.display = isMyTurn && !me.spectator ? 'block' : 'none';
+  const showDraw = isMyTurn && !me.spectator && !needSwapPick;
+  document.getElementById('drawBtn').style.display = showDraw ? 'block' : 'none';
 
   maybeOpenTargetPicker();
   syncTurnCountdownFromRoom();
@@ -1609,6 +1756,12 @@ function pickColor(color) {
 }
 
 function drawCard() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (currentRoom && isSwap7PickForMe(currentRoom)) {
+    showMessage('Finish the 7 swap first — pick a player in the popup, or wait for auto-pick.');
+    maybeOpenTargetPicker();
+    return;
+  }
   ws.send(JSON.stringify({
     type: 'draw',
     roomCode: myRoomCode,
